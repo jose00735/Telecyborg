@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TeleCyborg</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<canvas id="ambient" aria-hidden="true"></canvas>
+
+<main id="app">
+  <!-- Library -->
+  <section class="screen" id="screen-library" hidden>
+    <header class="bar">
+      <h1 class="brand" data-decrypt>TeleCyborg</h1>
+      <div class="actions">
+        <button id="btn-new" class="primary">New script</button>
+        <label class="btn" for="file-import" tabindex="0" id="btn-import">Import .md / .txt</label>
+        <input id="file-import" type="file" accept=".md,.txt,.markdown,text/plain,text/markdown" hidden>
+      </div>
+    </header>
+    <p class="lede">Pick a script to rehearse, or drop a Markdown or text file anywhere on this screen.</p>
+    <ol id="script-list" class="rows" aria-label="Scripts"></ol>
+    <div id="empty" class="empty" hidden>
+      <p>No scripts yet.</p>
+      <p>Paste your pitch into a new script, import a file, or start from the sample to see how it works.</p>
+      <div class="actions">
+        <button id="btn-new-empty" class="primary">New script</button>
+        <button id="btn-sample">Load the sample</button>
+      </div>
+    </div>
+    <footer class="foot">
+      <span id="ver"></span>
+      <span id="mode"></span>
+      <button id="btn-motion" class="link"></button>
+      <button id="btn-quit" class="link">Quit</button>
+    </footer>
+    <div id="drop" class="drop" hidden><p>Drop to import</p></div>
+  </section>
+
+  <!-- Editor -->
+  <section class="screen" id="screen-editor" hidden>
+    <header class="bar">
+      <button id="ed-back" class="link" aria-label="Back to library">‹ Library</button>
+      <input id="ed-title" class="title-input" placeholder="Script title" aria-label="Script title" data-decrypt>
+      <div class="actions">
+        <span id="ed-dirty" class="dirty" hidden>Unsaved</span>
+        <button id="ed-save">Save</button>
+        <button id="ed-rehearse" class="primary">Rehearse</button>
+      </div>
+    </header>
+    <div class="editor">
+      <textarea id="ed-body" spellcheck="true" aria-label="Script text" placeholder="# Opening
+Paste or write your script here. Leave a blank line between paragraphs.
+
+[pause 2]
+
+# Next section
+**Bold** marks words to stress. Lines starting with > are cues for you, like
+> smile"></textarea>
+      <aside class="pace">
+        <h2>Pace</h2>
+        <label for="ed-wpm">Words per minute</label>
+        <div class="wpm-row">
+          <input id="ed-wpm" type="range" min="60" max="300" step="1">
+          <input id="ed-wpm-num" type="number" min="60" max="300" aria-label="Words per minute value">
+        </div>
+        <label for="ed-target">Target time (m:ss, optional)</label>
+        <div class="target-row">
+          <input id="ed-target" placeholder="1:30" inputmode="numeric">
+          <button id="ed-fit" title="Set the pace that finishes on the target time">Fit to time</button>
+        </div>
+        <p id="ed-fit-msg" class="hint"></p>
+        <dl class="stats">
+          <div><dt>Words</dt><dd id="st-words">0</dd></div>
+          <div><dt>Paragraphs</dt><dd id="st-paras">0</dd></div>
+          <div><dt>Sections</dt><dd id="st-sections">0</dd></div>
+          <div><dt>Pauses</dt><dd id="st-pauses">0 s</dd></div>
+          <div class="big"><dt>Estimated time</dt><dd id="st-duration">0:00</dd></div>
+        </dl>
+        <details class="syntax">
+          <summary>Script syntax</summary>
+          <ul>
+            <li><code># Heading</code> starts a section (not read aloud)</li>
+            <li>Blank line separates paragraphs</li>
+            <li><code>[pause 2]</code> holds the scroll 2 s</li>
+            <li><code>**word**</code> stress, <code>_aside_</code> softer</li>
+            <li><code>&gt; cue</code> note to yourself</li>
+            <li><code>&lt;!-- note --&gt;</code> hidden</li>
+          </ul>
+        </details>
+      </aside>
+    </div>
+  </section>
+
+  <!-- Prompter -->
+  <section class="screen" id="screen-prompter" hidden>
+    <div id="pr-view" class="pr-view">
+      <div id="pr-focus" class="focus" aria-hidden="true"></div>
+      <div id="pr-content" class="pr-content"></div>
+      <div id="pr-count" class="countdown" aria-live="assertive" hidden></div>
+    </div>
+    <div id="pr-alert" class="alert" role="status" hidden></div>
+    <div class="hud" role="toolbar" aria-label="Prompter controls">
+      <button id="pr-play" class="hud-play" aria-label="Play or pause">Pause</button>
+      <div class="hud-cell"><span class="k">Pace</span><span id="pr-wpm" class="v">140</span><span class="u">wpm</span></div>
+      <div class="hud-cell"><span class="k">Time</span><span id="pr-time" class="v">0:00</span><span id="pr-target" class="u">/ 1:30</span></div>
+      <div class="hud-cell"><span class="k">Finish</span><span id="pr-proj" class="v">1:30</span></div>
+      <div class="hud-cell"><span class="k">Paragraph</span><span id="pr-para" class="v">1/9</span><span id="pr-ptime" class="u">0:00 / 0:12</span></div>
+      <div class="hud-tools">
+        <button id="pr-slower" aria-label="Slower (Down arrow)">−5</button>
+        <button id="pr-faster" aria-label="Faster (Up arrow)">+5</button>
+        <button id="pr-small" aria-label="Smaller text (minus)">A−</button>
+        <button id="pr-big" aria-label="Bigger text (plus)">A+</button>
+        <button id="pr-mirror" aria-pressed="false" aria-label="Mirror text (M)">Mirror</button>
+        <button id="pr-ontop" aria-pressed="false" aria-label="Keep window on top (T)">On top</button>
+        <button id="pr-exit" aria-label="Stop and go back (Esc)">Stop</button>
+      </div>
+    </div>
+    <div id="pr-timeline" class="timeline" aria-hidden="true"></div>
+  </section>
+
+  <!-- Report -->
+  <section class="screen" id="screen-report" hidden>
+    <header class="bar">
+      <h1 data-decrypt id="rp-title">Run complete</h1>
+      <div class="actions">
+        <button id="rp-library" class="link">Library</button>
+        <button id="rp-edit">Edit script</button>
+        <button id="rp-again" class="primary">Rehearse again</button>
+      </div>
+    </header>
+    <div class="report">
+      <div class="verdict" id="rp-verdict"></div>
+      <table class="rp-table">
+        <thead><tr><th scope="col">#</th><th scope="col">Paragraph</th><th scope="col" class="num">Planned</th><th scope="col" class="num">Actual</th><th scope="col">Difference</th></tr></thead>
+        <tbody id="rp-rows"></tbody>
+      </table>
+      <h2>Earlier runs</h2>
+      <ol id="rp-history" class="history"></ol>
+    </div>
+  </section>
+</main>
+
+<canvas id="wipe" aria-hidden="true"></canvas>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="matrix.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
