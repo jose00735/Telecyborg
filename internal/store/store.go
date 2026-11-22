@@ -38,6 +38,8 @@ type Summary struct {
 	Duration   float64 `json:"duration"`
 	Modified   string  `json:"modified"`
 	Runs       int     `json:"runs"`
+	QA         int     `json:"qa"`             // Q&A answers (stage 2)
+	Pack       string  `json:"pack,omitempty"` // content pack id
 }
 
 // Script is a script with its source and parsed form.
@@ -58,11 +60,29 @@ type Settings struct {
 	Countdown int     `json:"countdown"`
 	SeenIntro bool    `json:"seenIntro"`
 	Motion    string  `json:"motion"` // "full" or "reduced"
+	Speech    Speech  `json:"speech"`
+}
+
+// Speech holds listening preferences (stage 2 and 3).
+type Speech struct {
+	Model       string `json:"model"`       // whisper model id
+	LangOther   string `json:"langOther"`   // en, es, pt, auto
+	LangMe      string `json:"langMe"`      // en, es, pt, "" = script language
+	Mode        string `json:"mode"`        // clock, follow, hybrid
+	OtherSource string `json:"otherSource"` // system, device, off
+	OtherDevice string `json:"otherDevice"`
+	MicDevice   string `json:"micDevice"`
+	MicOn       bool   `json:"micOn"`     // listen to me (smart follow, filler words)
+	Consent     bool   `json:"consent"`   // the consent notice was read (PV-4)
+	Save        bool   `json:"save"`      // save transcripts and notes (PV-3)
+	AnswerMax   int    `json:"answerMax"` // answer-length guard, seconds
+	Captions    bool   `json:"captions"`  // live transcript strip visible
 }
 
 // DefaultSettings for a first launch.
 func DefaultSettings() Settings {
-	return Settings{WPM: script.DefaultWPM, FontSize: 44, FocusLine: 0.38, Countdown: 3, Motion: "full"}
+	return Settings{WPM: script.DefaultWPM, FontSize: 44, FocusLine: 0.38, Countdown: 3, Motion: "full",
+		Speech: Speech{Model: "base-q5_1", LangOther: "en", Mode: "clock", OtherSource: "system", MicOn: true, AnswerMax: 60, Captions: true}}
 }
 
 // Rehearsal is one run of a script.
@@ -75,6 +95,22 @@ type Rehearsal struct {
 	WPMEnd    int       `json:"wpmEnd"`
 	Completed bool      `json:"completed"`
 	Paras     []ParaRun `json:"paras"`
+	// stage 2 and 3
+	Mode      string         `json:"mode,omitempty"` // clock, follow, hybrid
+	Wall      float64        `json:"wall,omitempty"` // total time including answers
+	Answers   []AnswerRun    `json:"answers,omitempty"`
+	Fillers   map[string]int `json:"fillers,omitempty"`
+	Silences  int            `json:"silences,omitempty"`  // silences longer than 3 s
+	Longest   float64        `json:"longest,omitempty"`   // longest silence, seconds
+	OffScript float64        `json:"offScript,omitempty"` // seconds off script
+	SpokenWPM int            `json:"spokenWpm,omitempty"` // measured over the run
+}
+
+// AnswerRun is one Q&A detour during a run.
+type AnswerRun struct {
+	Title   string  `json:"title"`
+	Planned float64 `json:"planned"`
+	Actual  float64 `json:"actual"`
 }
 
 // ParaRun is the timing of one paragraph in a run.
@@ -83,6 +119,7 @@ type ParaRun struct {
 	Actual     float64 `json:"actual"`
 	Skipped    bool    `json:"skipped,omitempty"`
 	NotReached bool    `json:"notReached,omitempty"`
+	WPM        int     `json:"wpm,omitempty"` // spoken pace (smart follow)
 }
 
 const maxRuns = 20
@@ -158,7 +195,7 @@ func (s *Store) summarize(id, src string, mod time.Time) (Summary, script.Parsed
 	wpm := p.Meta.WPM
 	return Summary{ID: id, Title: p.Meta.Title, Words: p.Words, Paragraphs: p.Paragraphs, WPM: wpm,
 		Target: p.Meta.Target, Duration: p.Duration(wpm), Modified: mod.UTC().Format(time.RFC3339),
-		Runs: s.runCount(id)}, p
+		Runs: s.runCount(id), QA: p.QAItems, Pack: p.Meta.Extra["pack"]}, p
 }
 
 // List returns all scripts, most recently edited first.
@@ -268,6 +305,19 @@ func (s *Store) Save(id string, in Input) error {
 	return writeAtomic(s.scriptPath(id), []byte(compose(in, keep)))
 }
 
+// Replace overwrites a script with a complete source (front matter included), as written.
+func (s *Store) Replace(id, source string) error {
+	if !validID(id) {
+		return ErrNotFound
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, err := os.Stat(s.scriptPath(id)); err != nil {
+		return ErrNotFound
+	}
+	return writeAtomic(s.scriptPath(id), []byte(source))
+}
+
 // Delete removes a script and its history.
 func (s *Store) Delete(id string) error {
 	if !validID(id) {
@@ -368,7 +418,35 @@ func sanitize(st Settings) Settings {
 	if st.Motion != "reduced" {
 		st.Motion = "full"
 	}
+	sp := &st.Speech
+	if sp.Model == "" {
+		sp.Model = d.Speech.Model
+	}
+	if !oneOf(sp.LangOther, "en", "es", "pt", "auto") {
+		sp.LangOther = d.Speech.LangOther
+	}
+	if !oneOf(sp.LangMe, "", "en", "es", "pt") {
+		sp.LangMe = ""
+	}
+	if !oneOf(sp.Mode, "clock", "follow", "hybrid") {
+		sp.Mode = "clock"
+	}
+	if !oneOf(sp.OtherSource, "system", "device", "off") {
+		sp.OtherSource = "system"
+	}
+	if sp.AnswerMax < 20 || sp.AnswerMax > 300 {
+		sp.AnswerMax = d.Speech.AnswerMax
+	}
 	return st
+}
+
+func oneOf(v string, opts ...string) bool {
+	for _, o := range opts {
+		if v == o {
+			return true
+		}
+	}
+	return false
 }
 
 func writeAtomic(path string, data []byte) error {

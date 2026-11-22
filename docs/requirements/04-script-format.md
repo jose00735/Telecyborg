@@ -30,10 +30,28 @@ At Netskope I managed a book of more than 2,000 SaaS accounts...
 | SF-6 | `<!-- notes -->` are hidden from the prompter (speaker notes, sources). |
 | SF-7 | Lines starting with `>` are cues for the speaker (e.g. `> smile`, `> show slide 3`): shown smaller, not counted as words. |
 | SF-8 | Words are counted as whitespace-separated tokens containing a letter or digit. |
-| SF-9 | Stage 2 adds `keywords:` per section (see 08-content-packs.md); stage 1 ignores them. |
+| SF-9 | `keywords: a, b, c` under a heading lists words the listener would say that should bring the section up. Commas or semicolons separate keywords; `price/cost` gives alternatives of one idea. Not shown in the prompter. |
+| SF-10 | A line `=== QA ===` starts the Q&A part: every section after it is an answer. A heading that starts with `Q:` is an answer even without the marker. Answers are not in the main flow, timeline or target time; they are reached through suggestions, search (Ctrl+K) or jumps. |
+| SF-11 | `[check]` marks a fact to verify (Claude adds it when unsure). It is highlighted in the prompter, counted in the editor and not counted as a word. |
+| SF-12 | Front matter `pack: <id>` links a script to its content pack; `lang: en|es|pt` sets the speech language for smart follow. |
+
+## Example with Q&A
+```markdown
+# Netskope results
+keywords: netskope, adoption/utilisation, rollout
+At Netskope I moved an account from below 50 to 70 percent utilisation.
+
+=== QA ===
+# Q: What is your biggest weakness?
+keywords: weakness, improve
+I over-prepare, so now I time-box it.
+```
 
 ## Storage
 - One file per script: `%APPDATA%\TeleCyborg\scripts\<slug>.md`.
 - Rehearsals: `%APPDATA%\TeleCyborg\rehearsals\<slug>.json` (last 20 runs).
 - Settings: `%APPDATA%\TeleCyborg\settings.json`.
+- Content packs: `%APPDATA%\TeleCyborg\packs\<id>\` (see 08).
+- Speech models: `%APPDATA%\TeleCyborg\speech\models\`.
+- Transcripts and notes, only when "save transcript" is on: `%APPDATA%\TeleCyborg\transcripts\`.
 - On Linux/macOS the base folder is the OS user-config directory.

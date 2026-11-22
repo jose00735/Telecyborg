@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>TeleCyborg</title>
+<link rel="icon" href="icon.png">
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
@@ -16,6 +17,7 @@
       <h1 class="brand" data-decrypt>TeleCyborg</h1>
       <div class="actions">
         <button id="btn-new" class="primary">New script</button>
+        <button id="btn-packs" title="Brief Claude, import a pitch with likely questions">Content packs</button>
         <label class="btn" for="file-import" tabindex="0" id="btn-import">Import .md / .txt</label>
         <input id="file-import" type="file" accept=".md,.txt,.markdown,text/plain,text/markdown" hidden>
       </div>
@@ -24,9 +26,10 @@
     <ol id="script-list" class="rows" aria-label="Scripts"></ol>
     <div id="empty" class="empty" hidden>
       <p>No scripts yet.</p>
-      <p>Paste your pitch into a new script, import a file, or start from the sample to see how it works.</p>
+      <p>Paste your pitch into a new script, import a file, build one with Claude from a content pack, or start from the sample to see how it works.</p>
       <div class="actions">
         <button id="btn-new-empty" class="primary">New script</button>
+        <button id="btn-packs-empty">New content pack</button>
         <button id="btn-sample">Load the sample</button>
       </div>
     </div>
@@ -34,6 +37,7 @@
       <span id="ver"></span>
       <span id="mode"></span>
       <button id="btn-motion" class="link"></button>
+      <button id="btn-engine" class="link">Speech engine</button>
       <button id="btn-quit" class="link">Quit</button>
     </footer>
     <div id="drop" class="drop" hidden><p>Drop to import</p></div>
@@ -77,8 +81,11 @@ Paste or write your script here. Leave a blank line between paragraphs.
           <div><dt>Paragraphs</dt><dd id="st-paras">0</dd></div>
           <div><dt>Sections</dt><dd id="st-sections">0</dd></div>
           <div><dt>Pauses</dt><dd id="st-pauses">0 s</dd></div>
+          <div><dt>Q&amp;A answers</dt><dd id="st-qa">0</dd></div>
+          <div><dt>[check] marks</dt><dd><span id="st-checks">0</span> <button id="ed-next-check" class="mini" hidden title="Select the next [check] in the text">next</button></dd></div>
           <div class="big"><dt>Estimated time</dt><dd id="st-duration">0:00</dd></div>
         </dl>
+        <div id="ed-outline" class="outline" aria-label="Sections and keywords"></div>
         <details class="syntax">
           <summary>Script syntax</summary>
           <ul>
@@ -88,6 +95,9 @@ Paste or write your script here. Leave a blank line between paragraphs.
             <li><code>**word**</code> stress, <code>_aside_</code> softer</li>
             <li><code>&gt; cue</code> note to yourself</li>
             <li><code>&lt;!-- note --&gt;</code> hidden</li>
+            <li><code>keywords: price, cost</code> under a heading: words that bring this section up while listening</li>
+            <li><code>=== QA ===</code> then <code># Q: question</code>: answers reached from suggestions or <kbd>Ctrl</kbd>+<kbd>K</kbd>, not read in the main flow</li>
+            <li><code>[check]</code> a fact to verify</li>
           </ul>
         </details>
       </aside>
@@ -99,22 +109,37 @@ Paste or write your script here. Leave a blank line between paragraphs.
     <div id="pr-view" class="pr-view">
       <div id="pr-focus" class="focus" aria-hidden="true"></div>
       <div id="pr-content" class="pr-content"></div>
+      <div id="pr-answer" class="pr-content answer" hidden></div>
       <div id="pr-count" class="countdown" aria-live="assertive" hidden></div>
+      <div class="pr-top">
+        <div id="pr-crumbs" class="crumbs" hidden></div>
+        <div id="pr-badges" class="badges">
+          <span id="pr-listening" class="listening" hidden title="TeleCyborg is listening (L to stop)">● LISTENING</span>
+          <span id="pr-offscript" class="offscript" hidden>off script</span>
+        </div>
+        <ol id="pr-suggest" class="suggest" aria-label="Suggested sections" aria-live="polite"></ol>
+      </div>
+      <div id="pr-answer-head" class="answer-head" hidden></div>
     </div>
+    <div id="pr-captions" class="captions" hidden aria-label="Live transcript"><div id="pr-cap-lines"></div></div>
     <div id="pr-alert" class="alert" role="status" hidden></div>
     <div class="hud" role="toolbar" aria-label="Prompter controls">
       <button id="pr-play" class="hud-play" aria-label="Play or pause">Pause</button>
-      <div class="hud-cell"><span class="k">Pace</span><span id="pr-wpm" class="v">140</span><span class="u">wpm</span></div>
+      <div class="hud-cell"><span class="k" id="pr-wpm-k">Pace</span><span id="pr-wpm" class="v">140</span><span class="u">wpm</span></div>
       <div class="hud-cell"><span class="k">Time</span><span id="pr-time" class="v">0:00</span><span id="pr-target" class="u">/ 1:30</span></div>
       <div class="hud-cell"><span class="k">Finish</span><span id="pr-proj" class="v">1:30</span></div>
       <div class="hud-cell"><span class="k">Paragraph</span><span id="pr-para" class="v">1/9</span><span id="pr-ptime" class="u">0:00 / 0:12</span></div>
       <div class="hud-tools">
+        <button id="pr-listen" aria-pressed="false" aria-label="Listen (L)" class="listen-btn"><span class="lvl" id="pr-lvl"></span>Listen</button>
+        <button id="pr-mode" aria-label="Scroll mode: clock, follow my voice, or hybrid (F)">Clock</button>
+        <button id="pr-search" aria-label="Find a section (Ctrl+K)">Find</button>
         <button id="pr-slower" aria-label="Slower (Down arrow)">−5</button>
         <button id="pr-faster" aria-label="Faster (Up arrow)">+5</button>
         <button id="pr-small" aria-label="Smaller text (minus)">A−</button>
         <button id="pr-big" aria-label="Bigger text (plus)">A+</button>
         <button id="pr-mirror" aria-pressed="false" aria-label="Mirror text (M)">Mirror</button>
         <button id="pr-ontop" aria-pressed="false" aria-label="Keep window on top (T)">On top</button>
+        <button id="pr-hide" aria-pressed="false" aria-label="Hide from screen sharing (H)">Hide in share</button>
         <button id="pr-exit" aria-label="Stop and go back (Esc)">Stop</button>
       </div>
     </div>
@@ -134,19 +159,127 @@ Paste or write your script here. Leave a blank line between paragraphs.
     <div class="report">
       <div class="verdict" id="rp-verdict"></div>
       <table class="rp-table">
-        <thead><tr><th scope="col">#</th><th scope="col">Paragraph</th><th scope="col" class="num">Planned</th><th scope="col" class="num">Actual</th><th scope="col">Difference</th></tr></thead>
+        <thead><tr><th scope="col">#</th><th scope="col">Paragraph</th><th scope="col" class="num">Planned</th><th scope="col" class="num">Actual</th><th scope="col" class="num" id="rp-head-spoken" hidden>Spoken wpm</th><th scope="col">Difference</th></tr></thead>
         <tbody id="rp-rows"></tbody>
       </table>
+      <div id="rp-extra" class="rp-extra"></div>
+      <div id="rp-notes-box" class="notes-box" hidden>
+        <div class="notes-bar"><h2>Meeting notes</h2><button id="rp-notes-copy">Copy notes</button><span id="rp-notes-saved" class="hint"></span></div>
+        <pre id="rp-notes" class="notes"></pre>
+      </div>
       <h2>Earlier runs</h2>
       <ol id="rp-history" class="history"></ol>
     </div>
   </section>
+  <!-- Content packs -->
+  <section class="screen" id="screen-packs" hidden>
+    <header class="bar">
+      <button id="pk-back" class="link">‹ Library</button>
+      <h1 data-decrypt>Content packs</h1>
+      <div class="actions">
+        <button id="pk-new" class="primary">New pack</button>
+        <label class="btn" for="pk-file" tabindex="0" id="pk-import">Import pack .zip</label>
+        <input id="pk-file" type="file" accept=".zip,application/zip" hidden>
+      </div>
+    </header>
+    <p class="lede">A pack is everything for one occasion. Describe it, copy the brief to Claude, paste Claude's answer back: you get a timed pitch plus likely questions that TeleCyborg suggests while it listens.</p>
+    <ol id="pk-list" class="rows" aria-label="Content packs"></ol>
+    <div id="pk-empty" class="empty" hidden><p>No packs yet.</p><p>Start one for your next interview, QBR or demo.</p></div>
+  </section>
+
+  <section class="screen" id="screen-pack" hidden>
+    <header class="bar">
+      <button id="pf-back" class="link">‹ Packs</button>
+      <input id="pf-title" class="title-input" placeholder="Pack title (e.g. Terrific — hiring manager interview)" aria-label="Pack title">
+      <div class="actions"><span id="pf-dirty" class="dirty" hidden>Unsaved</span><button id="pf-save">Save</button></div>
+    </header>
+    <div class="pack">
+      <form id="pf-form" class="pack-form" autocomplete="off" onsubmit="return false">
+        <div class="grid2">
+          <label>Occasion<select id="pf-occasion"><option value="interview">Interview</option><option value="customer meeting">Customer meeting</option><option value="demo">Demo</option><option value="other">Other</option></select></label>
+          <label>Language<select id="pf-lang"><option value="en">English</option><option value="es">Spanish</option><option value="pt">Portuguese</option></select></label>
+          <label>Pitch length (m:ss)<input id="pf-target" placeholder="2:00"></label>
+          <label>Words per minute<input id="pf-wpm" type="number" min="60" max="300" placeholder="140"></label>
+          <label>Likely questions<input id="pf-qa" type="number" min="1" max="30" placeholder="8"></label>
+          <label>Max answer (seconds)<input id="pf-ansmax" type="number" min="20" max="180" placeholder="60"></label>
+        </div>
+        <label>Audience<input id="pf-audience" placeholder="Hiring manager, Customer Success, SaaS security company"></label>
+        <label>Goal<input id="pf-goal" placeholder="Get to the technical round"></label>
+        <label>Topics, one per line<textarea id="pf-topics" rows="4" placeholder="Why this company&#10;Customer success results&#10;Technical depth"></textarea></label>
+        <label>Facts to mention, one per line<textarea id="pf-facts" rows="4" placeholder="Moved an account from below 50% to 70% utilisation"></textarea></label>
+        <label>Avoid, one per line<textarea id="pf-avoid" rows="2" placeholder="Why I left my last job"></textarea></label>
+        <label>Sources: links or pasted text (job description, CV, notes)<textarea id="pf-sources" rows="6"></textarea></label>
+      </form>
+      <div class="pack-steps">
+        <section class="step">
+          <h2><span>1</span> Brief for Claude</h2>
+          <p class="hint">Saving writes the brief with timing per section, your facts and the exact format TeleCyborg imports.</p>
+          <div class="actions left"><button id="pf-brief" class="primary">Save &amp; write brief</button><button id="pf-copy" disabled>Copy brief</button><button id="pf-claude">Open claude.ai</button></div>
+          <textarea id="pf-brief-text" class="brief" rows="8" readonly placeholder="The brief appears here."></textarea>
+        </section>
+        <section class="step">
+          <h2><span>2</span> Paste Claude's answer</h2>
+          <textarea id="pf-answer" class="brief" rows="8" placeholder="Paste the whole reply here, code block included."></textarea>
+          <div class="actions left"><button id="pf-check">Check</button><button id="pf-import" class="primary" disabled>Create script</button></div>
+          <div id="pf-preview" class="preview" hidden></div>
+        </section>
+        <section class="step" id="pf-done" hidden>
+          <h2><span>3</span> Rehearse</h2>
+          <p id="pf-done-msg"></p>
+          <div class="actions left"><button id="pf-open-editor">Open in editor</button><button id="pf-rehearse" class="primary">Rehearse</button><button id="pf-export">Export pack .zip</button></div>
+        </section>
+      </div>
+    </div>
+  </section>
 </main>
+
+<!-- Listening setup (stage 2 and 3) -->
+<div id="live-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="lm-title" hidden>
+  <div class="modal-card wide">
+    <header class="bar"><h2 id="lm-title">Listening</h2><div class="actions"><button id="lm-close" class="link" aria-label="Close">Close ✕</button></div></header>
+    <div id="lm-consent" class="consent" hidden>
+      <p><strong>Before you listen to a conversation.</strong> TeleCyborg transcribes audio on this computer only; audio is never saved and nothing leaves the machine. Recording or transcribing other people may still need their consent — for example under Colombia's Law 1581 of 2012, US two-party-consent states and the GDPR — and your employer's or customer's rules on recording and AI tools apply in meetings. Getting that consent is your responsibility.</p>
+      <label class="check"><input type="checkbox" id="lm-consent-ok"> I understand</label>
+    </div>
+    <section class="lm-sec" id="lm-engine"></section>
+    <section class="lm-sec">
+      <h3>What to listen to</h3>
+      <div class="grid2">
+        <label>The other side (suggestions)
+          <select id="lm-other"><option value="system">System audio — the call (share screen audio)</option><option value="device">An input device…</option><option value="off">Off</option></select>
+        </label>
+        <label id="lm-other-dev-wrap" hidden>Input device for the other side<select id="lm-other-dev"></select></label>
+        <label>Their language<select id="lm-lang-other"><option value="en">English</option><option value="es">Spanish</option><option value="pt">Portuguese</option><option value="auto">Detect</option></select></label>
+        <label>Me (smart follow, filler words)
+          <select id="lm-mic"></select>
+        </label>
+        <label>Scroll mode<select id="lm-mode"><option value="clock">Clock — scroll at the set pace</option><option value="follow">Follow my voice</option><option value="hybrid">Hybrid — clock that waits for my voice</option></select></label>
+        <label class="check"><input type="checkbox" id="lm-save"> Save transcript and notes for this session</label>
+      </div>
+      <p class="hint" id="lm-dev-hint">Device names appear after you allow the microphone. <button id="lm-unlock" class="mini">Allow microphone</button></p>
+      <p class="hint">System audio: when asked, share your <strong>entire screen</strong> and tick <strong>Share system audio</strong>. TeleCyborg ignores the picture.</p>
+    </section>
+    <footer class="actions"><span id="lm-msg" class="hint bad"></span><button id="lm-start" class="primary">Start listening</button></footer>
+  </div>
+</div>
+
+<!-- Section search (Ctrl+K) -->
+<div id="search-modal" class="modal" role="dialog" aria-modal="true" aria-label="Find a section" hidden>
+  <div class="modal-card">
+    <input id="sm-input" class="search-input" placeholder="Find a section or question — or type what you were asked" aria-label="Search sections">
+    <ol id="sm-list" class="sm-list"></ol>
+    <p class="hint">↑ ↓ choose · Enter jump · Esc close · Backspace in the prompter returns to the narrative</p>
+  </div>
+</div>
 
 <canvas id="wipe" aria-hidden="true"></canvas>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="matrix.js"></script>
+<script src="core.js"></script>
+<script src="audio.js"></script>
+<script src="packs.js"></script>
+<script src="live.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

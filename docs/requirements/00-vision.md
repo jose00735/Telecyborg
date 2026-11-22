@@ -32,10 +32,18 @@ or on stage:
 ## Non-goals (for now)
 - Multi-user or cloud sync.
 - Video recording or streaming.
-- Generating content inside the app: stage 2 exports a brief for Claude and imports the result.
+- Generating content inside the app: content packs export a brief for Claude and import the result.
 
 ## Success criteria for stage 1
 - A 2-minute pitch can be pasted, timed to 2:00 and rehearsed in under a minute.
 - The live display shows, per paragraph, how long it was planned to take and how long it took.
 - When the speaker falls behind, the app shows the speed needed to finish on time and applies it
   with one key.
+
+## Success criteria for stages 2 and 3 (v1.0.0)
+- From a filled-in pack, the brief for Claude is one click away and Claude's answer imports as a
+  timed pitch plus Q&A answers, with format problems and unverified facts (`[check]`) flagged.
+- While listening, a question that matches a prepared answer shows a suggestion within one
+  transcription chunk (2–7 s); one key jumps to it and Backspace returns to the narrative.
+- In follow mode the script stays on the line you are saying, never scrolls backwards, and holds
+  when you go off script.

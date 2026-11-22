@@ -25,7 +25,11 @@ Consolas, "Lucida Console", monospace` (offline, no web fonts). Reading text 32‚
 | Library | Pick or add a script. | list of scripts as terminal rows: title, words, duration, edited |
 | Editor | Write or paste, set pace or target time. | text area left, pace panel right (stacks on narrow windows) |
 | Prompter | Read. | text column centred, focus band at 38%, HUD bottom, timeline under it |
-| Report | See how the run went. | per-paragraph rows with planned vs actual bars |
+| Report | See how the run went. | per-paragraph rows with planned vs actual bars; answers, spoken pace, filler words, meeting notes |
+| Content packs | List packs; import a pack zip. | terminal rows like the library |
+| Pack | Brief ‚Üí Claude's answer ‚Üí script. | form left; three numbered steps right |
+| Listening dialog | Consent, speech engine, sources, scroll mode. | modal over the paused prompter |
+| Find (Ctrl+K) | Jump to any section or answer; or type what you were asked. | command-palette modal |
 
 ## Motion
 | ID | Moment | Behaviour |
@@ -34,6 +38,8 @@ Consolas, "Lucida Console", monospace` (offline, no web fonts). Reading text 32‚
 | MO-2 | Countdown | 3-2-1 rendered as large glyph-scrambled digits. |
 | MO-3 | Behind alert | The amber bar slides up once; no blinking. |
 | MO-4 | Idle | Faint rain behind the library at 8% opacity; none behind the prompter text. |
+| MO-6 | Suggestion | Chips slide in at the top right (green for narrative sections, amber for answers), fade after 14 s, leave after 20 s. |
+| MO-7 | Listening | A red "‚óè LISTENING" badge pulses slowly while any audio is captured (PV-2); the Listen button shows a live level bar. |
 | MO-5 | Reduced motion | `prefers-reduced-motion` replaces wipes with a 120 ms fade and disables rain. |
 
 ## Readability rules
@@ -41,3 +47,9 @@ Consolas, "Lucida Console", monospace` (offline, no web fonts). Reading text 32‚
 - Past paragraphs dim to `--ghost`; the current one is `--read` at full strength; upcoming ones at 80%.
 - Focus band: two thin `--code` hairlines with a faint fill; never covers text.
 - All controls reachable by keyboard with a visible focus ring.
+
+## Stage 2 and 3 colour rules
+- Q&A answers use `--warn` amber for their heading, chips and the answer bar, so a detour never
+  looks like the narrative.
+- The answer bar turns amber-outlined at the answer limit ("Wrap up") and red at 1.5√ó ("Too long").
+- The live transcript strip sits between the reading area and the HUD, never over the text.

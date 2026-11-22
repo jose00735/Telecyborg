@@ -13,13 +13,18 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/jose00735/telecyborg/internal/live"
+	"github.com/jose00735/telecyborg/internal/pack"
 	"github.com/jose00735/telecyborg/internal/script"
+	"github.com/jose00735/telecyborg/internal/speech"
 	"github.com/jose00735/telecyborg/internal/store"
 )
 
 // Window is implemented by the native window (nil in browser mode).
 type Window interface {
 	SetOnTop(on bool) error
+	// SetHideFromCapture keeps the window out of screen sharing and recordings.
+	SetHideFromCapture(hide bool) error
 }
 
 // Server is the local HTTP server.
@@ -31,14 +36,22 @@ type Server struct {
 	Window  Window
 	Native  bool
 	Quit    func()
-	ln      net.Listener
+	// Open shows an https page in the user's browser (claude.ai for briefs, help links).
+	Open   func(url string) error
+	Packs  *pack.Store
+	Speech *speech.Manager
+	Live   *live.Registry
+	ln     net.Listener
 }
 
 // New creates a server with a random token.
 func New(st *store.Store, ui fs.FS, version string) *Server {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
-	return &Server{Store: st, UI: ui, Version: version, Token: hex.EncodeToString(b)}
+	ps, _ := pack.Open(st.Dir)
+	sp := speech.NewManager(st.Dir, "")
+	sp.Select(st.Settings().Speech.Model)
+	return &Server{Store: st, UI: ui, Version: version, Token: hex.EncodeToString(b), Packs: ps, Speech: sp, Live: live.NewRegistry()}
 }
 
 // Listen binds 127.0.0.1 on the given port (0 = random) and returns the URL to open.
@@ -122,6 +135,7 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 			fail(w, 500, "could not save settings: "+err.Error())
 			return
 		}
+		s.Speech.Select(out.Speech.Model)
 		writeJSON(w, 200, out)
 
 	case path == "parse" && r.Method == http.MethodPost:
@@ -152,6 +166,24 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, 200, map[string]bool{"on": in.On})
 
+	case path == "window/capture" && r.Method == http.MethodPost:
+		var in struct {
+			Hide bool `json:"hide"`
+		}
+		if err := readJSON(r, &in); err != nil {
+			fail(w, 400, "body is not valid JSON")
+			return
+		}
+		if s.Window == nil {
+			fail(w, 409, "hiding from screen share works in the TeleCyborg window, not in a browser")
+			return
+		}
+		if err := s.Window.SetHideFromCapture(in.Hide); err != nil {
+			fail(w, 500, err.Error())
+			return
+		}
+		writeJSON(w, 200, map[string]bool{"hide": in.Hide})
+
 	case path == "scripts" && r.Method == http.MethodGet:
 		list, err := s.Store.List()
 		if err != nil {
@@ -172,6 +204,15 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 		}
 		sc, _ := s.Store.Get(id)
 		writeJSON(w, 201, sc)
+
+	case path == "open" && r.Method == http.MethodPost:
+		s.open(w, r)
+	case parts[0] == "speech":
+		s.speechAPI(w, r, parts[1:])
+	case parts[0] == "live":
+		s.liveAPI(w, r, parts[1:])
+	case parts[0] == "packs":
+		s.packsAPI(w, r, parts[1:])
 
 	case len(parts) == 2 && parts[0] == "scripts":
 		s.scriptItem(w, r, parts[1])

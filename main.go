@@ -1,4 +1,5 @@
-// TeleCyborg: a Matrix-styled teleprompter (stage 1). See README.md and docs/requirements.
+// TeleCyborg: a Matrix-styled teleprompter that listens, suggests answers and follows your voice.
+// See README.md and docs/requirements.
 package main
 
 import (
@@ -8,12 +9,15 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
 
 	"github.com/jose00735/telecyborg/internal/server"
 	"github.com/jose00735/telecyborg/internal/store"
 )
 
-var version = "v0.1.0-dev"
+var version = "v1.0.0-dev"
 
 //go:embed web
 var webFS embed.FS
@@ -36,6 +40,10 @@ func main() {
 	}
 	ui, _ := fs.Sub(webFS, "web")
 	srv := server.New(st, ui, version)
+	if exe, err := os.Executable(); err == nil {
+		srv.Speech.ExeDir = filepath.Dir(exe)
+	}
+	srv.Open = openURL
 	url, err := srv.Listen(*port)
 	if err != nil {
 		fatal("could not start the local server: %v", err)
@@ -46,14 +54,29 @@ func main() {
 		}
 	}()
 
+	// never leave the speech engine running behind us
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sig
+		srv.Speech.Stop()
+		os.Exit(0)
+	}()
+
 	if *noOpen {
 		fmt.Println("TeleCyborg", version, "listening on", url)
-		select {}
+		done := make(chan struct{})
+		srv.Quit = func() { close(done) }
+		<-done
+		srv.Speech.Stop()
+		return
 	}
 	run(srv, url, *browser)
+	srv.Speech.Stop()
 }
 
 func fatal(format string, a ...any) {
+	// (deferred cleanups do not run after os.Exit; the speech engine is not started yet here)
 	msg := fmt.Sprintf(format, a...)
 	showError(msg)
 	os.Exit(1)
