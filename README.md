@@ -9,7 +9,13 @@ answer to what you were just asked, lets you jump there and come back to your na
 can follow your voice so the script moves with you. Speech recognition runs on your computer
 (whisper.cpp); no audio leaves it.
 
-> Status: **v1.0.0** — stages 1, 2 and 3. Windows 10/11 installer (x64) and portable builds.
+It also runs on **Android** on its own and keeps scripts, content packs and settings in sync with
+your PC, and it can put the running text **over your own camera image** — in a private
+self-view on the PC, or on the screen of the phone you use as a webcam with
+[Macawlink](https://github.com/jose00735/macawlink) — so you read right next to the lens.
+
+> Status: **v1.1.0** — stages 1–3, Android app with PC sync, camera and Macawlink views.
+> Windows 10/11 installer (x64), portable builds, Android APK.
 
 ## Stages
 
@@ -21,9 +27,9 @@ can follow your voice so the script moves with you. Speech recognition runs on y
 
 ## Install (Windows)
 
-1. Download `TeleCyborg-v1.0.0-windows-amd64-setup.zip` from
+1. Download `TeleCyborg-v1.1.0-windows-amd64-setup.zip` from
    [Releases](https://github.com/jose00735/telecyborg/releases), unzip it and run
-   `TeleCyborg-Setup-v1.0.0.exe`.
+   `TeleCyborg-Setup-v1.1.0.exe`.
 2. SmartScreen may warn because the app is not code-signed yet: **More info → Run anyway**.
 3. Setup installs for your user only (no admin) with Start menu and desktop shortcuts and an
    uninstaller in Settings → Apps. If the Microsoft Visual C++ runtime is missing it offers to
@@ -32,6 +38,30 @@ can follow your voice so the script moves with you. Speech recognition runs on y
 No install wanted? Use the portable zip (`telecyborg.exe` + `whisper\` folder). ARM PCs have
 their own portable zip. TeleCyborg needs the Microsoft Edge WebView2 runtime, which ships with
 Windows 10 and 11; without it TeleCyborg opens in your browser.
+
+## Android and sync
+
+Install `TeleCyborg-v1.1.0-android.apk` on the phone (allow installing unknown apps). It works on
+its own: library, editor, prompter with pace coaching and Q&A answers, content packs, settings.
+
+To sync, the PC is the hub: on the PC open **Phone sync** (library footer) → **Pair a phone**; on
+the phone open **Pair with PC** and pick the PC (or type its address). Both screens show a
+6-digit code — accept on both only if they match. After that the phone syncs scripts, content
+packs, settings and rehearsal history whenever both are on the same Wi-Fi; if both sides edited
+the same script, the PC's version keeps its name and the phone's is kept as "(phone copy)".
+Listening and smart follow stay on the PC for now.
+See [13-android-and-sync.md](docs/requirements/13-android-and-sync.md).
+
+## Read over your own camera image
+
+- **V — Camera view (PC):** the prompter shows your camera behind the text (it picks
+  *Macawlink Camera* when present) with the reading line right under the lens. Only this window
+  shows the text; your call app gets the clean camera picture. Add **H** to hide the window from
+  screen sharing and **T** to keep it on top.
+- **P — Phone (Macawlink 0.4+):** with the phone as your webcam through Macawlink, the text
+  appears on the phone's screen beside the front lens. Tap the phone to pause, swipe to change
+  paragraph. The text never enters the video stream.
+See [14-camera-and-macawlink.md](docs/requirements/14-camera-and-macawlink.md).
 
 ## Use it
 
@@ -68,6 +98,8 @@ may need their consent — that is your responsibility (see
 | Ctrl+K or / | Find a section or answer, or type what you were asked |
 | C | Show / hide the live transcript |
 | H | Hide the window from screen sharing |
+| V | Read over your camera image |
+| P | Show the prompter on the Macawlink phone |
 | T | Keep window on top |
 | M | Mirror text (for beam-splitter glass) |
 | + / − | Bigger / smaller text |
@@ -81,11 +113,11 @@ Scripts are plain Markdown in `%APPDATA%\TeleCyborg\scripts`; see
 ## Build
 
 ```
-./build.sh v1.0.0
+./build.sh v1.1.0
 ```
 
 Runs `go vet` and the tests, fetches the whisper.cpp runtime, and writes the installer zip,
-portable zips and checksums to `dist/`. Pure Go, no C compiler. A plain exe:
+portable zips, the Android APK (when `ANDROID_HOME` is set) and checksums to `dist/`. Pure Go, no C compiler. A plain exe:
 
 ```
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -H windowsgui" -o telecyborg.exe .
@@ -110,6 +142,8 @@ with a fake microphone and a fake speech engine.
 - [10-privacy-and-consent.md](docs/requirements/10-privacy-and-consent.md) — recording, consent and data handling
 - [11-build-and-release.md](docs/requirements/11-build-and-release.md) — builds, installer and releases
 - [12-ideas-backlog.md](docs/requirements/12-ideas-backlog.md) — ideas beyond the three stages
+- [13-android-and-sync.md](docs/requirements/13-android-and-sync.md) — Android app, PC hub, pairing and sync rules
+- [14-camera-and-macawlink.md](docs/requirements/14-camera-and-macawlink.md) — camera self-view and the Macawlink phone view
 
 Third-party software and licences: [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt)
 (whisper.cpp, go-webview2, Go).

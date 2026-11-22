@@ -1,0 +1,187 @@
+{
+ "duration": 14.3,
+ "fitWpm90": 60,
+ "parsed": {
+  "meta": {
+   "title": "Terrific — 90 second pitch",
+   "wpm": 150,
+   "target": 90,
+   "fontSize": 0,
+   "lang": "en",
+   "extra": {
+    "custom": "kept"
+   }
+  },
+  "blocks": [
+   {
+    "kind": "para",
+    "html": "Intro before any heading.",
+    "text": "Intro before any heading.",
+    "words": 4,
+    "pause": 0,
+    "index": 0,
+    "sec": -1
+   },
+   {
+    "kind": "section",
+    "html": "Opening",
+    "text": "Opening",
+    "words": 0,
+    "pause": 0,
+    "index": -1,
+    "section": "Opening",
+    "sec": 0
+   },
+   {
+    "kind": "para",
+    "html": "Hi, I\u0026#39;m \u003cstrong\u003eJose\u003c/strong\u003e. I work in \u003cem\u003ecustomer success\u003c/em\u003e.\u003cbr\u003eSecond line of the same paragraph.",
+    "text": "Hi, I'm Jose. I work in customer success.\nSecond line of the same paragraph.",
+    "words": 14,
+    "pause": 2,
+    "index": 1,
+    "section": "Opening",
+    "sec": 0
+   },
+   {
+    "kind": "cue",
+    "html": "smile",
+    "text": "smile",
+    "words": 0,
+    "pause": 0,
+    "index": -1,
+    "section": "Opening",
+    "sec": 0
+   },
+   {
+    "kind": "para",
+    "html": "At Netskope I managed 2,000+ accounts — really \u003cmark class=\"check\"\u003e[check]\u003c/mark\u003e.",
+    "text": "At Netskope I managed 2,000+ accounts — really .",
+    "words": 7,
+    "pause": 1.5,
+    "index": 2,
+    "section": "Opening",
+    "sec": 0
+   },
+   {
+    "kind": "section",
+    "html": "Close",
+    "text": "Close",
+    "words": 0,
+    "pause": 0,
+    "index": -1,
+    "section": "Close",
+    "sec": 1
+   },
+   {
+    "kind": "para",
+    "html": "Thank you.",
+    "text": "Thank you.",
+    "words": 2,
+    "pause": 0,
+    "index": 3,
+    "section": "Close",
+    "sec": 1
+   },
+   {
+    "kind": "section",
+    "html": "Q: What is your biggest weakness?",
+    "text": "Q: What is your biggest weakness?",
+    "words": 0,
+    "pause": 0,
+    "index": -1,
+    "section": "Q: What is your biggest weakness?",
+    "sec": 2,
+    "qa": true
+   },
+   {
+    "kind": "para",
+    "html": "I over-prepare. Now I time-box it.",
+    "text": "I over-prepare. Now I time-box it.",
+    "words": 6,
+    "pause": 1,
+    "index": 0,
+    "section": "Q: What is your biggest weakness?",
+    "sec": 2,
+    "qa": true
+   },
+   {
+    "kind": "section",
+    "html": "Q: Why this role?",
+    "text": "Q: Why this role?",
+    "words": 0,
+    "pause": 0,
+    "index": -1,
+    "section": "Q: Why this role?",
+    "sec": 3,
+    "qa": true
+   },
+   {
+    "kind": "para",
+    "html": "Because it fits.",
+    "text": "Because it fits.",
+    "words": 3,
+    "pause": 0,
+    "index": 1,
+    "section": "Q: Why this role?",
+    "sec": 3,
+    "qa": true
+   }
+  ],
+  "words": 27,
+  "paragraphs": 4,
+  "sections": 4,
+  "pauses": 3.5,
+  "outline": [
+   {
+    "index": 0,
+    "title": "Opening",
+    "keywords": [
+     "introduce yourself",
+     "about you",
+     "background"
+    ],
+    "firstPara": 1,
+    "paras": 2,
+    "words": 21
+   },
+   {
+    "index": 1,
+    "title": "Close",
+    "keywords": [
+     "thanks",
+     "closing"
+    ],
+    "firstPara": 3,
+    "paras": 1,
+    "words": 2
+   },
+   {
+    "index": 2,
+    "title": "Q: What is your biggest weakness?",
+    "qa": true,
+    "keywords": [
+     "weakness",
+     "improve"
+    ],
+    "firstPara": 0,
+    "paras": 1,
+    "words": 6
+   },
+   {
+    "index": 3,
+    "title": "Q: Why this role?",
+    "qa": true,
+    "keywords": [
+     "why this role/motivation"
+    ],
+    "firstPara": 1,
+    "paras": 1,
+    "words": 3
+   }
+  ],
+  "qaItems": 2,
+  "qaWords": 9,
+  "qaParas": 2,
+  "checks": 1
+ }
+}

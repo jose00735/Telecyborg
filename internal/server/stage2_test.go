@@ -214,3 +214,16 @@ func TestSpeechStatus(t *testing.T) {
 		t.Fatalf("bad model: %d", rec.Code)
 	}
 }
+
+func TestSettingsKeepSync(t *testing.T) {
+	s, h := newTest(t)
+	st := s.Store.Settings()
+	st.Sync = true
+	_, _ = s.Store.SaveSettings(st)
+	st.Sync = false
+	st.WPM = 150
+	do(h, s.Token, "PUT", "/api/settings", st)
+	if got := s.Store.Settings(); !got.Sync || got.WPM != 150 {
+		t.Fatalf("settings PUT changed sync: %+v", got)
+	}
+}

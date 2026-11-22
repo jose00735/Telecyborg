@@ -61,6 +61,7 @@ type Settings struct {
 	SeenIntro bool    `json:"seenIntro"`
 	Motion    string  `json:"motion"` // "full" or "reduced"
 	Speech    Speech  `json:"speech"`
+	Sync      bool    `json:"sync"` // phone sync hub on (internal/hub)
 }
 
 // Speech holds listening preferences (stage 2 and 3).
@@ -104,6 +105,7 @@ type Rehearsal struct {
 	Longest   float64        `json:"longest,omitempty"`   // longest silence, seconds
 	OffScript float64        `json:"offScript,omitempty"` // seconds off script
 	SpokenWPM int            `json:"spokenWpm,omitempty"` // measured over the run
+	Device    string         `json:"device,omitempty"`    // "phone" for runs from the Android app
 }
 
 // AnswerRun is one Q&A detour during a run.
@@ -455,4 +457,124 @@ func writeAtomic(path string, data []byte) error {
 		return err
 	}
 	return os.Rename(tmp, path)
+}
+
+// ---- phone sync (internal/hub) ----
+
+// IDs lists script ids.
+func (s *Store) IDs() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ents, _ := os.ReadDir(filepath.Join(s.Dir, "scripts"))
+	out := []string{}
+	for _, e := range ents {
+		id := strings.TrimSuffix(e.Name(), ".md")
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".md") && validID(id) {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// Raw returns a script's source exactly as stored and its modification time.
+func (s *Store) Raw(id string) ([]byte, time.Time, error) {
+	if !validID(id) {
+		return nil, time.Time{}, ErrNotFound
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	b, err := os.ReadFile(s.scriptPath(id))
+	if err != nil {
+		return nil, time.Time{}, ErrNotFound
+	}
+	st, _ := os.Stat(s.scriptPath(id))
+	return b, st.ModTime(), nil
+}
+
+// Put writes a script source exactly as given, creating it if needed.
+func (s *Store) Put(id string, source []byte) error {
+	if !validID(id) {
+		return ErrNotFound
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return writeAtomic(s.scriptPath(id), source)
+}
+
+// ValidID reports whether id is a valid script or pack id.
+func ValidID(id string) bool { return validID(id) }
+
+// RunIDs lists scripts that have rehearsal history.
+func (s *Store) RunIDs() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ents, _ := os.ReadDir(filepath.Join(s.Dir, "rehearsals"))
+	out := []string{}
+	for _, e := range ents {
+		id := strings.TrimSuffix(e.Name(), ".json")
+		if strings.HasSuffix(e.Name(), ".json") && validID(id) {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// RunsRaw returns the stored rehearsal history JSON (nil when none).
+func (s *Store) RunsRaw(id string) ([]byte, time.Time) {
+	if !validID(id) {
+		return nil, time.Time{}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	b, err := os.ReadFile(s.runsPath(id))
+	if err != nil {
+		return nil, time.Time{}
+	}
+	st, _ := os.Stat(s.runsPath(id))
+	return b, st.ModTime()
+}
+
+// MergeRuns adds runs from another device (deduplicated by time), keeping the newest 20.
+func (s *Store) MergeRuns(id string, in []Rehearsal) error {
+	if !validID(id) {
+		return ErrNotFound
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	runs := []Rehearsal{}
+	if b, err := os.ReadFile(s.runsPath(id)); err == nil {
+		_ = json.Unmarshal(b, &runs)
+	}
+	merged := MergeRehearsals(runs, in)
+	b, _ := json.MarshalIndent(merged, "", " ")
+	return writeAtomic(s.runsPath(id), b)
+}
+
+// MergeRehearsals unions two histories by their "at" time, newest first, at most 20.
+func MergeRehearsals(a, b []Rehearsal) []Rehearsal {
+	seen := map[string]bool{}
+	out := []Rehearsal{}
+	for _, list := range [][]Rehearsal{a, b} {
+		for _, r := range list {
+			if r.At == "" || seen[r.At] {
+				continue
+			}
+			seen[r.At] = true
+			out = append(out, r)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].At > out[j].At })
+	if len(out) > maxRuns {
+		out = out[:maxRuns]
+	}
+	return out
+}
+
+// SettingsTime is when settings.json last changed.
+func (s *Store) SettingsTime() time.Time {
+	st, err := os.Stat(filepath.Join(s.Dir, "settings.json"))
+	if err != nil {
+		return time.Time{}
+	}
+	return st.ModTime()
 }

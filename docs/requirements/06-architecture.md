@@ -15,12 +15,18 @@ telecyborg.exe
 ├── internal/live         listening sessions: both sides, prompts, notes, optional saving
 ├── internal/pack         content packs: brief for Claude, validation, import, zip export/import
 ├── internal/server       local HTTP server: embedded UI + JSON API
+├── internal/hub          phone sync hub: TLS server, pairing, manifest, three-way sync rules (13)
+├── internal/mdns         DNS-SD responder (_telecyborg._tcp), adapted from Macawlink
+├── internal/macaw        prompter feed to Macawlink's local API (14)
 ├── cmd/installer         Windows setup (per-user install, shortcuts, uninstaller)
+├── tools/hubtest         the real hub on a temp folder, for the Android interop test
+├── android/              Android app (Kotlin, Compose) and golden fixtures shared with Go
 └── web/                  UI: HTML, CSS, vanilla JS (embedded with go:embed)
     ├── core.js           API token, helpers
     ├── audio.js          capture, resampling to 16 kHz, speech detection, chunking
     ├── pcm-worklet.js    AudioWorklet tap
     ├── packs.js          content pack screens
+    ├── sync.js           phone sync dialog
     ├── live.js           listening dialog, engine install, chunk queues, transcript
     └── app.js            library, editor, prompter (tracks, cues, detours, follow), report
 ```
@@ -42,6 +48,8 @@ telecyborg.exe
 | AR-12 | The other side is cut at pauses (≤ 7 s); the speaker in 2.4 s windows with 0.6 s overlap. | Questions arrive whole; following stays responsive. The aligner drops the repeated overlap. |
 | AR-13 | whisper-server runs in a Windows job object that kills it with TeleCyborg. | No orphaned engine after a crash. |
 | AR-14 | Matching and alignment run in Go, per session. | Unit-testable; the UI only renders results. |
+| AR-16 | The PC is the hub; phones sync with it over HTTPS on the LAN (47811) and work standalone. | One source of truth, no cloud, phones never talk to each other. |
+| AR-17 | The Macawlink feed goes through Macawlink's existing local API and wire protocol. | One USB/Wi-Fi link to the phone; the text never enters the video. |
 | AR-15 | The prompter has tracks: the narrative and one answer at a time, each on its own plan clock, with a return stack. | Detours do not disturb the narrative's timing. |
 
 ## API (v1.0.0)
@@ -70,3 +78,14 @@ telecyborg.exe
 | GET | `/api/packs/{id}/brief` | brief for Claude + pack.md |
 | POST | `/api/packs/{id}/preview`, `/import` | validate / import Claude's answer as a script |
 | POST | `/api/packs/{id}/export`, `/api/packs/import` | zip to Downloads / import a zip |
+
+## API added in v1.1.0
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/hub/status` | sync hub state, addresses, paired phones, pending pairing code |
+| POST | `/api/hub/enable`, `/pair`, `/pair/cancel`, `/decide`, `/forget` | control the hub |
+| GET | `/api/macaw/status` | is Macawlink running, does the phone support the prompter |
+| POST | `/api/macaw/script`, `/state`, `/clear` | feed the phone |
+| GET | `/api/macaw/keys` | taps made on the phone |
+
+The phone-facing hub API is in 13-android-and-sync.md.

@@ -38,6 +38,7 @@
       <span id="mode"></span>
       <button id="btn-motion" class="link"></button>
       <button id="btn-engine" class="link">Speech engine</button>
+      <button id="btn-sync" class="link">Phone sync</button>
       <button id="btn-quit" class="link">Quit</button>
     </footer>
     <div id="drop" class="drop" hidden><p>Drop to import</p></div>
@@ -107,6 +108,7 @@ Paste or write your script here. Leave a blank line between paragraphs.
   <!-- Prompter -->
   <section class="screen" id="screen-prompter" hidden>
     <div id="pr-view" class="pr-view">
+      <video id="pr-video" class="cam" autoplay muted playsinline hidden></video>
       <div id="pr-focus" class="focus" aria-hidden="true"></div>
       <div id="pr-content" class="pr-content"></div>
       <div id="pr-answer" class="pr-content answer" hidden></div>
@@ -133,6 +135,8 @@ Paste or write your script here. Leave a blank line between paragraphs.
         <button id="pr-listen" aria-pressed="false" aria-label="Listen (L)" class="listen-btn"><span class="lvl" id="pr-lvl"></span>Listen</button>
         <button id="pr-mode" aria-label="Scroll mode: clock, follow my voice, or hybrid (F)">Clock</button>
         <button id="pr-search" aria-label="Find a section (Ctrl+K)">Find</button>
+        <button id="pr-cam" aria-pressed="false" aria-label="Read over your camera image (V)">Camera</button>
+        <button id="pr-phone" aria-pressed="false" aria-label="Show the prompter on the Macawlink phone (P)">Phone</button>
         <button id="pr-slower" aria-label="Slower (Down arrow)">−5</button>
         <button id="pr-faster" aria-label="Faster (Up arrow)">+5</button>
         <button id="pr-small" aria-label="Smaller text (minus)">A−</button>
@@ -263,6 +267,17 @@ Paste or write your script here. Leave a blank line between paragraphs.
   </div>
 </div>
 
+<!-- Phone sync (hub) -->
+<div id="sync-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="sy-title" hidden>
+  <div class="modal-card wide">
+    <header class="bar"><h2 id="sy-title">Phone sync</h2><div class="actions"><button id="sy-close" class="link">Close ✕</button></div></header>
+    <p class="hint">This PC is the hub. The TeleCyborg Android app works on its own and syncs scripts, content packs, settings and rehearsal history with this PC whenever both are on the same Wi-Fi.</p>
+    <label class="check"><input type="checkbox" id="sy-on"> Let paired phones sync with this PC</label>
+    <div id="sy-body"></div>
+    <footer class="actions"><span id="sy-msg" class="hint bad"></span><button id="sy-pair" class="primary">Pair a phone</button></footer>
+  </div>
+</div>
+
 <!-- Section search (Ctrl+K) -->
 <div id="search-modal" class="modal" role="dialog" aria-modal="true" aria-label="Find a section" hidden>
   <div class="modal-card">
@@ -280,6 +295,7 @@ Paste or write your script here. Leave a blank line between paragraphs.
 <script src="audio.js"></script>
 <script src="packs.js"></script>
 <script src="live.js"></script>
+<script src="sync.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

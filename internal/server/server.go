@@ -13,7 +13,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/jose00735/telecyborg/internal/hub"
 	"github.com/jose00735/telecyborg/internal/live"
+	"github.com/jose00735/telecyborg/internal/macaw"
 	"github.com/jose00735/telecyborg/internal/pack"
 	"github.com/jose00735/telecyborg/internal/script"
 	"github.com/jose00735/telecyborg/internal/speech"
@@ -41,6 +43,8 @@ type Server struct {
 	Packs  *pack.Store
 	Speech *speech.Manager
 	Live   *live.Registry
+	Hub    *hub.Hub
+	Macaw  *macaw.Feed
 	ln     net.Listener
 }
 
@@ -51,7 +55,19 @@ func New(st *store.Store, ui fs.FS, version string) *Server {
 	ps, _ := pack.Open(st.Dir)
 	sp := speech.NewManager(st.Dir, "")
 	sp.Select(st.Settings().Speech.Model)
-	return &Server{Store: st, UI: ui, Version: version, Token: hex.EncodeToString(b), Packs: ps, Speech: sp, Live: live.NewRegistry()}
+	srv := &Server{Store: st, UI: ui, Version: version, Token: hex.EncodeToString(b), Packs: ps, Speech: sp, Live: live.NewRegistry(),
+		Macaw: macaw.New("")}
+	if h, err := hub.New(st.Dir, st, ps); err == nil {
+		srv.Hub = h
+	}
+	return srv
+}
+
+// StartHub starts the phone sync hub when it is turned on in settings.
+func (s *Server) StartHub() {
+	if s.Hub != nil && s.Store.Settings().Sync {
+		_ = s.Hub.Start()
+	}
 }
 
 // Listen binds 127.0.0.1 on the given port (0 = random) and returns the URL to open.
@@ -130,6 +146,7 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 			fail(w, 400, "settings are not valid JSON")
 			return
 		}
+		st.Sync = s.Store.Settings().Sync // phone sync is switched only from the sync dialog (api/hub)
 		out, err := s.Store.SaveSettings(st)
 		if err != nil {
 			fail(w, 500, "could not save settings: "+err.Error())
@@ -137,6 +154,11 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 		}
 		s.Speech.Select(out.Speech.Model)
 		writeJSON(w, 200, out)
+
+	case parts[0] == "hub":
+		s.hubAPI(w, r, parts[1:])
+	case parts[0] == "macaw":
+		s.macawAPI(w, r, parts[1:])
 
 	case path == "parse" && r.Method == http.MethodPost:
 		var in struct {
@@ -252,6 +274,9 @@ func (s *Server) scriptItem(w http.ResponseWriter, r *http.Request, id string) {
 		if err := s.Store.Delete(id); err != nil {
 			fail(w, 404, "script not found")
 			return
+		}
+		if s.Hub != nil {
+			s.Hub.Repo.Deleted(hub.KindScript, id)
 		}
 		w.WriteHeader(204)
 	default:

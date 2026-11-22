@@ -564,3 +564,73 @@ func (s *Store) ImportZip(data []byte, slug func(string) string) (Imported, erro
 	}
 	return Imported{Pack: p, Script: string(files["script.md"])}, nil
 }
+
+// ---- phone sync (internal/hub) ----
+
+// IDs lists pack ids.
+func (s *Store) IDs() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ents, _ := os.ReadDir(s.Dir)
+	out := []string{}
+	for _, e := range ents {
+		if e.IsDir() && idRe.MatchString(e.Name()) {
+			if _, err := os.Stat(s.path(e.Name(), "pack.json")); err == nil {
+				out = append(out, e.Name())
+			}
+		}
+	}
+	return out
+}
+
+// Raw returns pack.json and answer.md exactly as stored, and the newest modification time.
+func (s *Store) Raw(id string) (packJSON, answer []byte, mod time.Time, err error) {
+	if !idRe.MatchString(id) {
+		return nil, nil, time.Time{}, ErrNotFound
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	packJSON, err = os.ReadFile(s.path(id, "pack.json"))
+	if err != nil {
+		return nil, nil, time.Time{}, ErrNotFound
+	}
+	st, _ := os.Stat(s.path(id, "pack.json"))
+	mod = st.ModTime()
+	if a, err := os.ReadFile(s.path(id, "answer.md")); err == nil {
+		answer = a
+		if st, err := os.Stat(s.path(id, "answer.md")); err == nil && st.ModTime().After(mod) {
+			mod = st.ModTime()
+		}
+	}
+	return packJSON, answer, mod, nil
+}
+
+// PutRaw stores a pack from another device exactly as given and rebuilds pack.md and the brief.
+func (s *Store) PutRaw(id string, packJSON, answer []byte) error {
+	if !idRe.MatchString(id) {
+		return ErrNotFound
+	}
+	var p Pack
+	if err := json.Unmarshal(packJSON, &p); err != nil {
+		return fmt.Errorf("pack.json is not valid: %w", err)
+	}
+	p.ID = id
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := os.MkdirAll(filepath.Join(s.Dir, id), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(s.path(id, "pack.json"), packJSON, 0o644); err != nil {
+		return err
+	}
+	if len(answer) > 0 {
+		if err := os.WriteFile(s.path(id, "answer.md"), answer, 0o644); err != nil {
+			return err
+		}
+	} else {
+		os.Remove(s.path(id, "answer.md"))
+	}
+	_ = os.WriteFile(s.path(id, "pack.md"), []byte(Markdown(Normalize(p))), 0o644)
+	_ = os.WriteFile(s.path(id, "claude-brief.md"), []byte(Brief(p)), 0o644)
+	return nil
+}

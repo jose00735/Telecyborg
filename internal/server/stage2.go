@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jose00735/telecyborg/internal/hub"
 	"github.com/jose00735/telecyborg/internal/pack"
 	"github.com/jose00735/telecyborg/internal/speech"
 	"github.com/jose00735/telecyborg/internal/store"
@@ -289,6 +290,9 @@ func (s *Server) packItem(w http.ResponseWriter, r *http.Request, id string) {
 		if err := s.Packs.Delete(id); err != nil {
 			fail(w, 404, "pack not found")
 			return
+		}
+		if s.Hub != nil {
+			s.Hub.Repo.Deleted(hub.KindPack, id)
 		}
 		w.WriteHeader(204)
 	default:
