@@ -317,7 +317,11 @@
   function startPrompter() {
     if (P.raf) cancelAnimationFrame(P.raf);
     clearTimeout(P.countTimer);
-    show("prompter", { noFocus: true, onSwap: () => { buildRun(); measure(); render(); hud(); } }).then(countdown);
+    show("prompter", { noFocus: true, onSwap: () => { buildRun(); measure(); render(); hud(); } }).then(() => {
+      let want = false; try { want = localStorage.getItem("tc-phone-feed") === "1"; } catch (_) { /* ignore */ }
+      if (want && !FEED.on) togglePhone();
+      countdown();
+    });
   }
 
   function countdown() {
@@ -361,6 +365,7 @@
       render();
       if (t - P.hudT > 100) { hud(); P.hudT = t; }
     }
+    if (FEED.on) feedTick(t, false);
     P.raf = requestAnimationFrame(loop);
   }
 
@@ -689,6 +694,96 @@
     modeLabel();
   }
 
+  // ---------- camera self-view (V): read over your own webcam image ----------
+  // Prefers "Macawlink Camera" (the phone as webcam). Only you see this window; the call gets
+  // the camera's clean picture.
+  const CAM = { stream: null, saveFocus: 0 };
+  async function toggleCam() {
+    if (CAM.stream) return stopCam();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return toast("No camera access in this window", true);
+    try {
+      let devs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
+      if (devs.length && !devs[0].label) { const t = await navigator.mediaDevices.getUserMedia({ video: true }); t.getTracks().forEach((x) => x.stop()); devs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput"); }
+      const pick = devs.find((d) => /macawlink/i.test(d.label)) || devs[0];
+      if (!pick) return toast("No camera found", true);
+      CAM.stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: pick.deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } } });
+      const v = $("pr-video"); v.srcObject = CAM.stream; v.hidden = false;
+      $("pr-view").classList.add("camview");
+      $("pr-cam").setAttribute("aria-pressed", "true");
+      CAM.saveFocus = settings.focusLine; settings.focusLine = 0.2; // read right under the lens
+      applyView();
+      toast("Camera: " + (pick.label || "camera") + " — only you see the text");
+    } catch (e) { stopCam(); toast(e.name === "NotAllowedError" ? "Camera access was refused" : e.message, true); }
+  }
+  function stopCam() {
+    if (CAM.stream) CAM.stream.getTracks().forEach((t) => t.stop());
+    if (CAM.saveFocus) settings.focusLine = CAM.saveFocus;
+    CAM.stream = null; CAM.saveFocus = 0;
+    const v = $("pr-video"); v.srcObject = null; v.hidden = true;
+    $("pr-view").classList.remove("camview");
+    $("pr-cam").setAttribute("aria-pressed", "false");
+    applyView();
+  }
+
+  // ---------- Macawlink phone feed (P): the prompter over the phone's camera preview ----------
+  const FEED = { on: false, scriptKey: "", t: 0, last: null, keyT: 0, busyKeys: false };
+  async function togglePhone() {
+    if (FEED.on) return stopPhone(true);
+    let st;
+    try { st = await api("GET", "macaw/status"); } catch (e) { return toast(e.message, true); }
+    if (!st.prompter) return toast(st.error || "Macawlink is not running on this PC", true);
+    FEED.on = true; FEED.scriptKey = "";
+    $("pr-phone").classList.add("on"); $("pr-phone").setAttribute("aria-pressed", "true");
+    try { localStorage.setItem("tc-phone-feed", "1"); } catch (_) { /* ignore */ }
+    toast(st.phone ? "Prompter on " + (st.device || "the phone") : "Prompter will appear on the phone when it streams");
+    feedTick(performance.now(), true);
+  }
+  function stopPhone(user) {
+    if (!FEED.on) return;
+    FEED.on = false;
+    $("pr-phone").classList.remove("on"); $("pr-phone").setAttribute("aria-pressed", "false");
+    api("POST", "macaw/clear").catch(() => {});
+    if (user) { try { localStorage.removeItem("tc-phone-feed"); } catch (_) { /* ignore */ } }
+  }
+  function feedScript(tr) {
+    const blocks = current.parsed.blocks.filter((b) => (tr.sec < 0 ? !b.qa : b.sec === tr.sec))
+      .map((b) => ({ k: b.kind === "section" ? "sec" : b.kind, t: b.text }));
+    return { id: current.id + (tr.sec < 0 ? "" : "#" + tr.sec), title: tr.sec < 0 ? current.title : P.detour.title,
+      track: tr.sec < 0 ? "main" : "answer", blocks, font_scale: settings.fontSize / 44, mirror: false };
+  }
+  function feedTick(now, force) {
+    if (!FEED.on || !P.tr) return;
+    const tr = P.tr;
+    const key = current.id + "|" + tr.sec + "|" + current.modified;
+    if (key !== FEED.scriptKey) {
+      FEED.scriptKey = key; FEED.last = null;
+      api("POST", "macaw/script", feedScript(tr)).catch((e) => { toast(e.message, true); stopPhone(false); });
+    }
+    if (!force && now - FEED.t < 125) return;
+    const dt = (now - FEED.t) / 1000;
+    FEED.t = now;
+    const i = paraAt(tr, tr.s), p = tr.paras[i];
+    const frac = Math.max(0, Math.min(1, (tr.s - p.start) / p.read));
+    let speed = 0;
+    if (FEED.last && FEED.last.i === i && dt > 0 && dt < 1) speed = Math.max(0, (frac - FEED.last.frac) / dt);
+    FEED.last = { i, frac };
+    const alert = tr === P.main ? P.alert : (P.detour && P.detour.time > (settings.speech.answerMax || 60) ? "wrap" : "");
+    api("POST", "macaw/state", {
+      id: current.id + (tr.sec < 0 ? "" : "#" + tr.sec), para: i, frac, speed: P.playing ? speed : 0, playing: P.playing && !P.done,
+      wpm: voiceDriven() && P.mode === "follow" && V.wpm ? Math.round(V.wpm) : P.live,
+      clock: tr === P.main ? fmt(P.elapsed) + " / " + fmt(P.target) : fmt(P.detour.time) + " / " + fmt(tr.total), alert,
+      hint: alert === "behind" && isFinite(P.needed) ? "speed up to " + Math.round(P.needed) + " wpm" : "",
+    }).catch(() => {});
+    if (now - FEED.keyT > 300 && !FEED.busyKeys) {
+      FEED.keyT = now; FEED.busyKeys = true;
+      api("GET", "macaw/keys").then((r) => {
+        for (const k of r.keys || []) {
+          ({ toggle: togglePlay, next: () => jump(1), prev: () => jump(-1), faster: () => setLive(5), slower: () => setLive(-5), back })[k]?.();
+        }
+      }).catch(() => {}).finally(() => (FEED.busyKeys = false));
+    }
+  }
+
   function toggleListen() {
     if (window.TCLive.isOn()) window.TCLive.stop(false);
     else window.TCLive.openSetup(false);
@@ -739,6 +834,8 @@
     $("pr-alert").hidden = true;
     if (P.detour) { recordDetour(); }
     hud();
+    if (CAM.stream) stopCam();
+    if (FEED.on) { stopPhone(false); }
     const followed = voiceDriven();
     const notes = window.TCLive.hasSession() ? await window.TCLive.stop(true) : null;
     const M = P.main;
@@ -775,6 +872,8 @@
   $("pr-listen").onclick = toggleListen;
   $("pr-mode").onclick = cycleMode;
   $("pr-search").onclick = openSearch;
+  $("pr-cam").onclick = toggleCam;
+  $("pr-phone").onclick = togglePhone;
   $("pr-view").addEventListener("wheel", (e) => {
     if (!P.started || P.done) return;
     e.preventDefault();
@@ -792,7 +891,7 @@
   window.addEventListener("resize", () => { if (screen === "prompter" && P.tr) { measure(); render(); } });
 
   document.addEventListener("keydown", (e) => {
-    if (!$("search-modal").hidden || !$("live-modal").hidden) return;
+    if (!$("search-modal").hidden || !$("live-modal").hidden || !$("sync-modal").hidden) return;
     if (screen === "editor" && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveEditor(); return; }
     if (screen === "editor" && e.key === "Escape") { $("ed-back").click(); return; }
     if (screen === "pack" && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); $("pf-save").click(); return; }
@@ -813,6 +912,7 @@
       c: () => { settings.speech.captions = !settings.speech.captions; saveSettings(); applyView(); },
       C: () => { settings.speech.captions = !settings.speech.captions; saveSettings(); applyView(); },
       h: toggleHide, H: toggleHide, Backspace: back,
+      v: toggleCam, V: toggleCam, p: togglePhone, P: togglePhone,
       1: () => acceptSuggestion(0), 2: () => acceptSuggestion(1), 3: () => acceptSuggestion(2),
     };
     if (map[k]) { e.preventDefault(); map[k](); }
@@ -903,6 +1003,7 @@
     $("ver").textContent = "TeleCyborg " + info.version;
     $("mode").textContent = info.native ? "" : "Browser mode";
     window.TCPacks.init({ show, loadLibrary, openScript });
+    window.TCSync.init();
     window.TCLive.init({
       settings: () => settings, saveSettings, script: () => current, track: () => (P.tr ? P.tr.sec : -1),
       onSuggestions, onPosition, onSpeaking, onFillers, onListening, pause, resume,

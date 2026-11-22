@@ -43,5 +43,11 @@ echo "== zips"
 (cd "$STAGE" && zip -q -r -X "../TeleCyborg-$VERSION-windows-amd64-portable.zip" telecyborg.exe whisper README.txt THIRD_PARTY_NOTICES.txt)
 (cd "$DIST" && cp telecyborg-arm64.exe telecyborg.exe && cp ../README-windows.txt README.txt && zip -q -X "TeleCyborg-$VERSION-windows-arm64.zip" telecyborg.exe README.txt && rm telecyborg.exe README.txt telecyborg-arm64.exe)
 rm -rf "$STAGE"
-(cd "$DIST" && sha256sum *.zip > SHA256SUMS.txt)
+
+if [ -n "${ANDROID_HOME:-}" ]; then
+  echo "== Android APK"
+  (cd android && ./gradlew --no-daemon -q testDebugUnitTest assembleRelease)
+  cp android/app/build/outputs/apk/release/app-release.apk "$DIST/TeleCyborg-$VERSION-android.apk"
+fi
+(cd "$DIST" && sha256sum *.zip *.apk 2>/dev/null > SHA256SUMS.txt)
 ls -la "$DIST"

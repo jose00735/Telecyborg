@@ -1,0 +1,25 @@
+{
+ "preview": {
+  "body": "---\ntitle: Terrific — 90 second pitch\nwpm: 150\ntarget: 1:30\nlang: en\ncustom: kept\n---\nIntro before any heading.\n\n# Opening\nkeywords: introduce yourself, about you; background\nHi, I'm **Jose**. I work in _customer success_.\nSecond line of the same paragraph.\n\n[pause 2s]\n\n\u003e smile\n\u003c!-- speaker note, hidden --\u003e\nAt Netskope I managed 2,000+ accounts — really [check].\n\n[pause]\n\n## Close\nkeywords: thanks, closing\nThank you.\n\n=== QA ===\n# Q: What is your biggest weakness?\nkeywords: weakness, improve\nI over-prepare. Now I time-box it.\n\n[pause 1]\n\n# Q: Why this role?\nkeywords: why this role/motivation\nBecause it fits.",
+  "title": "Terrific — 90 second pitch",
+  "sections": 2,
+  "qa": 2,
+  "words": 27,
+  "duration": 14.3,
+  "target": 90,
+  "checks": 1,
+  "warnings": [
+   "Only 2 questions; the pack asked for 6.",
+   "1 [check] mark(s): facts Claude could not confirm. Verify them in the editor before you present."
+  ],
+  "errors": [],
+  "ok": true,
+  "sectionTitles": [
+   "Opening",
+   "Close",
+   "Q: What is your biggest weakness?",
+   "Q: Why this role?"
+  ]
+ },
+ "withPack": "---\ntitle: Terrific — 90 second pitch\ntarget: 1:30\nwpm: 150\nlang: en\npack: terrific-interview\ncustom: kept\n---\nIntro before any heading.\n\n# Opening\nkeywords: introduce yourself, about you; background\nHi, I'm **Jose**. I work in _customer success_.\nSecond line of the same paragraph.\n\n[pause 2s]\n\n\u003e smile\n\u003c!-- speaker note, hidden --\u003e\nAt Netskope I managed 2,000+ accounts — really [check].\n\n[pause]\n\n## Close\nkeywords: thanks, closing\nThank you.\n\n=== QA ===\n# Q: What is your biggest weakness?\nkeywords: weakness, improve\nI over-prepare. Now I time-box it.\n\n[pause 1]\n\n# Q: Why this role?\nkeywords: why this role/motivation\nBecause it fits.\n"
+}

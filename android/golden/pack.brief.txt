@@ -1,0 +1,64 @@
+You are helping me prepare for a job interview. Write a spoken pitch I will read from a teleprompter, plus the questions I am likely to be asked with short spoken answers.
+
+## Context
+
+- Title: Terrific interview
+- Audience: Hiring manager
+- My goal: Reach the technical round
+- Language: write everything in Spanish.
+
+## Timing
+
+- The pitch must last 2:00 at 140 words per minute: about 280 words in total, not counting headings and keyword lines.
+- Use 4 sections: an opening, one section per topic below, and a close. Aim for about 70 words per section; shift words toward the topics that matter most to this audience.
+- Write 6 likely questions. Each answer must fit in 60 seconds (at most 140 words).
+
+## Topics (in this order)
+
+1. Netskope results
+2. Fortinet support
+
+## Facts I must mention (use them exactly as written)
+
+- Moved an account from below 50% to 70% utilisation
+
+## Avoid
+
+- Why I left
+
+## Sources (the only material you may draw facts from)
+
+JD: Customer Success Manager, LATAM.
+
+## Rules for facts
+
+- Use only the facts and sources above. Never invent numbers, names, dates, customers or results.
+- If a sentence needs a fact you do not have, write the sentence with a placeholder and put [check] right after it, so I can verify or replace it.
+- Write for the ear: short sentences, plain words, first person, natural pauses. No bullet points inside the text.
+
+## Keywords
+
+Under every heading, add one line that starts with `keywords:` followed by 3–8 comma-separated words or short phrases the OTHER person would say that should bring that section up (for example "pricing, cost, budget"). Include synonyms and, if the other person may speak another language, the same words in that language. Use a slash for alternatives of one idea: "price/cost".
+
+## Output format
+
+Reply with ONLY the Markdown below inside one code block, nothing before or after it. Keep the exact structure: the front matter, "# " headings, the keywords line under each heading, blank lines between paragraphs, the line "=== QA ===" before the questions, and "# Q: " headings for the questions. You may add "[pause 1]" on its own line where I should pause, "**word**" to stress a word, and "> note" lines as short stage directions for me (they are not read aloud).
+
+```markdown
+---
+title: Terrific interview
+target: 2:00
+wpm: 140
+lang: es
+---
+# <Section title>
+keywords: <comma-separated words the listener would say>
+<paragraph>
+
+<paragraph>
+
+=== QA ===
+# Q: <likely question>
+keywords: <comma-separated words in the question>
+<answer paragraphs>
+```

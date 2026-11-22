@@ -44,6 +44,7 @@ func main() {
 		srv.Speech.ExeDir = filepath.Dir(exe)
 	}
 	srv.Open = openURL
+	srv.StartHub()
 	url, err := srv.Listen(*port)
 	if err != nil {
 		fatal("could not start the local server: %v", err)
@@ -60,6 +61,9 @@ func main() {
 	go func() {
 		<-sig
 		srv.Speech.Stop()
+		if srv.Hub != nil {
+			srv.Hub.Stop()
+		}
 		os.Exit(0)
 	}()
 

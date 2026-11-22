@@ -1,0 +1,76 @@
+{
+ "duration": 6.857142857142857,
+ "fitWpm90": 60,
+ "parsed": {
+  "meta": {
+   "title": "Just a paragraph with no headings,…",
+   "wpm": 140,
+   "target": 0,
+   "fontSize": 0,
+   "lang": ""
+  },
+  "blocks": [
+   {
+    "kind": "para",
+    "html": "Just a paragraph with no headings, an em dash — and numbers 2,000.",
+    "text": "Just a paragraph with no headings, an em dash — and numbers 2,000.",
+    "words": 12,
+    "pause": 0,
+    "index": 0,
+    "sec": -1
+   },
+   {
+    "kind": "para",
+    "html": "Another paragraph.\u003cbr\u003eLine two.",
+    "text": "Another paragraph.\nLine two.",
+    "words": 4,
+    "pause": 0,
+    "index": 1,
+    "sec": -1
+   },
+   {
+    "kind": "section",
+    "html": "Q: Salary expectations?",
+    "text": "Q: Salary expectations?",
+    "words": 0,
+    "pause": 0,
+    "index": -1,
+    "section": "Q: Salary expectations?",
+    "sec": 0,
+    "qa": true
+   },
+   {
+    "kind": "para",
+    "html": "Market rate.",
+    "text": "Market rate.",
+    "words": 2,
+    "pause": 0,
+    "index": 0,
+    "section": "Q: Salary expectations?",
+    "sec": 0,
+    "qa": true
+   }
+  ],
+  "words": 16,
+  "paragraphs": 2,
+  "sections": 1,
+  "pauses": 0,
+  "outline": [
+   {
+    "index": 0,
+    "title": "Q: Salary expectations?",
+    "qa": true,
+    "keywords": [
+     "salary"
+    ],
+    "firstPara": 0,
+    "paras": 1,
+    "words": 2
+   }
+  ],
+  "qaItems": 1,
+  "qaWords": 2,
+  "qaParas": 1,
+  "checks": 0
+ }
+}

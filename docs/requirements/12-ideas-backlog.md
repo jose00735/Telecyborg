@@ -4,9 +4,9 @@ Ideas that complement the three stages. Each is small enough to slot into a mino
 
 | Idea | Why it helps | Fits |
 |---|---|---|
-| **Webcam strip mode** — a short, wide always-on-top window that sits right under the webcam | Your eyes stay near the lens on video calls | v1.1 |
+| **Webcam strip mode** — a short, wide always-on-top window that sits right under the webcam | Your eyes stay near the lens on video calls | **largely done v1.1**: camera view (V) reads at 20 % under the lens; the phone view sits beside the lens |
 | **Hidden from screen share** — Win32 `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` | When you share your screen in a customer meeting, the prompter does not appear in the share | **done v1.0** |
-| **Phone remote over LAN** — scan a QR code, your phone becomes play/pause/next | Control without touching the keyboard on camera | v1.1 |
+| **Phone remote over LAN** — scan a QR code, your phone becomes play/pause/next | Control without touching the keyboard on camera | **partly done v1.1**: taps on the Macawlink phone control the PC prompter |
 | **Global hotkeys** | Control the prompter while another window (slides, the call) has focus | v1.1 |
 | **Rehearsal history chart** — total time and per-paragraph drift across runs | See your pitch tighten over rehearsals | v1.1 |
 | **Cheat-card mode** for meetings — bullets and numbers instead of full prose, big and glanceable | Customer meetings need prompts, not reading | v1.1 |

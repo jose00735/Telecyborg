@@ -4,7 +4,8 @@
 |---|---|---|---|
 | v0.1.0 | 1 | Teleprompter beta: library, editor, auto-scroll, fit-to-time, paragraph timing, pace coaching, rehearsal report, Matrix UI and transitions, always-on-top, mirror | released |
 | v1.0.0 | 2 + 3 | Content packs (brief for Claude → pitch + Q&A), listening with local whisper.cpp, keyword cue suggestions, jump and "back to narrative", section search, live transcript, post-meeting notes, smart follow (clock / follow / hybrid), spoken pace, filler words and silences, answer-length guard, hide from screen share, Windows installer | **released** |
-| v1.1 | — | Ideas from 12-ideas-backlog.md that are still open: webcam strip, global hotkeys, phone remote, history charts, cheat cards, multilingual sections, code signing | planned |
+| v1.1.0 | — | Android app (standalone; library, editor, prompter, Q&A detours, packs, settings), PC as sync hub (TLS, pairing by code comparison, three-way sync), reading over your camera image on the PC, Macawlink phone-screen prompter | **released** |
+| v1.2 | — | Listening on Android (on-device recognition), global hotkeys, history charts, cheat cards, multilingual sections, code signing | planned |
 
 The original plan split stage 2 into v0.3 (packs) and v0.4 (listening) and stage 3 into v0.5.
 They shipped together in v1.0.0 because listening, cues and follow share one audio pipeline.
