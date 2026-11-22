@@ -2,13 +2,27 @@
 
 ```
 telecyborg.exe
-├── main.go               flags, starts server, opens the window
-├── window_windows.go     native window (WebView2 via github.com/jchv/go-webview2, pure Go)
+├── main.go               flags, starts server, opens the window, stops the speech engine on exit
+├── window_windows.go     native window (WebView2 via github.com/jchv/go-webview2, pure Go), DPI aware
 ├── window_other.go       non-Windows: opens the default browser
-├── internal/script       Markdown script parser (sections, paragraphs, pauses, word counts)
+├── rsrc_windows_*.syso   icon and manifest (generated with akavel/rsrc from assets/)
+├── internal/script       Markdown script parser (sections, keywords, Q&A, paragraphs, pauses, word counts)
 ├── internal/store        scripts, settings and rehearsal history on disk
+├── internal/words        text folding, EN/ES/PT light stemming, fuzzy word match, filler words
+├── internal/cue          keyword matcher: transcript of the other side → suggested sections
+├── internal/follow       aligner: transcript of the speaker → position in a track of paragraphs
+├── internal/speech       whisper.cpp whisper-server manager: runtime, models, downloads, transcription
+├── internal/live         listening sessions: both sides, prompts, notes, optional saving
+├── internal/pack         content packs: brief for Claude, validation, import, zip export/import
 ├── internal/server       local HTTP server: embedded UI + JSON API
+├── cmd/installer         Windows setup (per-user install, shortcuts, uninstaller)
 └── web/                  UI: HTML, CSS, vanilla JS (embedded with go:embed)
+    ├── core.js           API token, helpers
+    ├── audio.js          capture, resampling to 16 kHz, speech detection, chunking
+    ├── pcm-worklet.js    AudioWorklet tap
+    ├── packs.js          content pack screens
+    ├── live.js           listening dialog, engine install, chunk queues, transcript
+    └── app.js            library, editor, prompter (tracks, cues, detours, follow), report
 ```
 
 ## Decisions
@@ -21,23 +35,38 @@ telecyborg.exe
 | AR-5 | Every API call needs a per-launch random token (header `X-TC-Token`). | Stops other local web pages from calling the API. |
 | AR-6 | Scripts stored as Markdown, not a database. | Portable, readable, Git-friendly. |
 | AR-7 | Timing engine runs in the UI (requestAnimationFrame). | Frame-accurate scrolling with no round trips. |
-| AR-8 | Window-level features (always on top) go through a small `/api/window/*` bridge to Win32 `SetWindowPos`. | Keeps the UI unaware of the OS. |
+| AR-8 | Window-level features (on top, hide from capture) go through `/api/window/*` to Win32. | Keeps the UI unaware of the OS. |
+| AR-9 | Speech-to-text is whisper.cpp's `whisper-server` (v1.8.4, CPU build) as a child process on 127.0.0.1, fed 16 kHz WAV chunks over HTTP. | Accurate in EN/ES/PT, offline, keeps the model loaded between chunks, and keeps TeleCyborg pure Go. |
+| AR-10 | Audio is captured in the UI (getUserMedia for microphones and input devices, getDisplayMedia for system audio) and resampled and chunked in JS. | WebView2/Chromium already has device permission UI and system-audio loopback; no WASAPI code to maintain. |
+| AR-11 | Speech detection is an adaptive energy gate in JS; only voiced chunks are sent. | Saves CPU and avoids whisper's hallucinations on silence. |
+| AR-12 | The other side is cut at pauses (≤ 7 s); the speaker in 2.4 s windows with 0.6 s overlap. | Questions arrive whole; following stays responsive. The aligner drops the repeated overlap. |
+| AR-13 | whisper-server runs in a Windows job object that kills it with TeleCyborg. | No orphaned engine after a crash. |
+| AR-14 | Matching and alignment run in Go, per session. | Unit-testable; the UI only renders results. |
+| AR-15 | The prompter has tracks: the narrative and one answer at a time, each on its own plan clock, with a return stack. | Detours do not disturb the narrative's timing. |
 
-## API (v0.1.0)
+## API (v1.0.0)
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/scripts` | list summaries |
-| POST | `/api/scripts` | create `{title, body, wpm, target}` → summary |
-| GET | `/api/scripts/{id}` | raw script + parsed paragraphs |
-| PUT | `/api/scripts/{id}` | save |
-| DELETE | `/api/scripts/{id}` | delete |
-| POST | `/api/parse` | parse unsaved text (editor live stats) |
+| GET | `/api/scripts` | list summaries (now with `qa` and `pack`) |
+| POST | `/api/scripts` | create `{title, body, wpm, target}` → script |
+| GET / PUT / DELETE | `/api/scripts/{id}` | script / save / delete |
+| POST | `/api/parse` | parse unsaved text (editor live stats, outline) |
 | GET / POST | `/api/scripts/{id}/rehearsals` | history / add run |
-| GET / PUT | `/api/settings` | settings |
-| POST | `/api/window/ontop` | `{on: bool}` (native window only) |
+| GET / PUT | `/api/settings` | settings (now with `speech`) |
+| POST | `/api/window/ontop`, `/api/window/capture` | keep on top; hide from screen capture |
+| POST | `/api/open` | open an allow-listed https page (claude.ai, VC++ runtime) in the browser |
 | GET | `/api/info` | version, native window or browser |
-
-## Later stages
-- Stage 2 adds an audio pipeline (`internal/listen`): capture → local speech-to-text → keyword
-  matcher → server-sent events to the UI. Speech engine options are compared in 07.
-- Stage 3 adds `internal/follow`: forced alignment of the speaker's transcript to the script clock.
+| GET | `/api/speech/status` | runtime, models, download progress, errors |
+| POST | `/api/speech/install` | `{model}` download runtime (if missing) and model in the background |
+| POST | `/api/speech/import?name=` | upload a model file the user already has |
+| POST | `/api/speech/test?lang=` | transcribe raw PCM (engine test) |
+| POST | `/api/live/start` | `{scriptId, save}` → session id and outline |
+| POST | `/api/live/{id}/audio?role=&track=&lang=` | raw 16 kHz PCM16 → `{text, suggestions | position}` |
+| POST | `/api/live/{id}/text` | same with text (typed questions, tests) |
+| POST | `/api/live/{id}/seek` | `{track, para}` after a manual jump |
+| POST | `/api/live/{id}/stop` | `{used}` → notes (saved only when the session saves) |
+| GET / POST | `/api/packs` | list / create |
+| GET / PUT / DELETE | `/api/packs/{id}` | pack |
+| GET | `/api/packs/{id}/brief` | brief for Claude + pack.md |
+| POST | `/api/packs/{id}/preview`, `/import` | validate / import Claude's answer as a script |
+| POST | `/api/packs/{id}/export`, `/api/packs/import` | zip to Downloads / import a zip |

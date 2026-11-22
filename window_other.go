@@ -26,4 +26,12 @@ func run(srv *server.Server, url string, _ bool) {
 	<-quit
 }
 
+func openURL(u string) error {
+	opener := "xdg-open"
+	if runtime.GOOS == "darwin" {
+		opener = "open"
+	}
+	return exec.Command(opener, u).Start()
+}
+
 func showError(msg string) { fmt.Fprintln(os.Stderr, "TeleCyborg:", msg) }

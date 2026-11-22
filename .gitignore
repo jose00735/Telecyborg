@@ -2,3 +2,5 @@
 *.zip
 /dist/
 *.tmp
+/.cache/
+/cmd/installer/payload/payload.zip

@@ -18,7 +18,24 @@ var (
 	user32           = syscall.NewLazyDLL("user32.dll")
 	procSetWindowPos = user32.NewProc("SetWindowPos")
 	procMessageBox   = user32.NewProc("MessageBoxW")
+	procSetAffinity  = user32.NewProc("SetWindowDisplayAffinity")
+	procDpiForSystem = user32.NewProc("GetDpiForSystem")
 )
+
+// iconID is the icon group in rsrc_windows_amd64.syso (1 is the manifest).
+const iconID = 2
+
+// scale converts 96-dpi sizes to the screen's, since the manifest makes TeleCyborg DPI aware.
+func scale(n int) int {
+	if procDpiForSystem.Find() != nil {
+		return n
+	}
+	dpi, _, _ := procDpiForSystem.Call()
+	if dpi < 96 {
+		return n
+	}
+	return n * int(dpi) / 96
+}
 
 const (
 	swpNoSize     = 0x0001
@@ -49,6 +66,28 @@ func (n *nativeWindow) SetOnTop(on bool) error {
 	return <-done
 }
 
+// SetHideFromCapture uses WDA_EXCLUDEFROMCAPTURE (Windows 10 2004+) so screen sharing and
+// recordings show nothing where the prompter is.
+func (n *nativeWindow) SetHideFromCapture(hide bool) error {
+	if n.w == nil {
+		return errors.New("no window")
+	}
+	var aff uintptr // WDA_NONE
+	if hide {
+		aff = 0x11 // WDA_EXCLUDEFROMCAPTURE
+	}
+	done := make(chan error, 1)
+	n.w.Dispatch(func() {
+		r, _, err := procSetAffinity.Call(uintptr(n.w.Window()), aff)
+		if r == 0 {
+			done <- errors.New("this version of Windows cannot hide the window from capture: " + err.Error())
+			return
+		}
+		done <- nil
+	})
+	return <-done
+}
+
 func run(srv *server.Server, url string, browser bool) {
 	if !browser {
 		w := webview2.NewWithOptions(webview2.WebViewOptions{
@@ -56,9 +95,10 @@ func run(srv *server.Server, url string, browser bool) {
 			AutoFocus: true,
 			WindowOptions: webview2.WindowOptions{
 				Title:  "TeleCyborg",
-				Width:  1180,
-				Height: 780,
+				Width:  uint(scale(1180)),
+				Height: uint(scale(780)),
 				Center: true,
+				IconId: iconID,
 			},
 		})
 		if w != nil {
@@ -66,7 +106,7 @@ func run(srv *server.Server, url string, browser bool) {
 			srv.Window = nw
 			srv.Native = true
 			srv.Quit = func() { w.Dispatch(func() { w.Terminate() }) }
-			w.SetSize(760, 520, webview2.HintMin)
+			w.SetSize(scale(760), scale(520), webview2.HintMin)
 			w.Navigate(url)
 			w.Run()
 			w.Destroy()
@@ -78,6 +118,10 @@ func run(srv *server.Server, url string, browser bool) {
 	srv.Quit = func() { close(quit) }
 	_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
 	<-quit
+}
+
+func openURL(u string) error {
+	return exec.Command("rundll32", "url.dll,FileProtocolHandler", u).Start()
 }
 
 func showError(msg string) {

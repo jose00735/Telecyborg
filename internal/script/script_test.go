@@ -125,3 +125,80 @@ func TestGuessTitle(t *testing.T) {
 		t.Fatalf("title = %q", p.Meta.Title)
 	}
 }
+
+const packed = `---
+title: Interview pitch
+target: 1:00
+---
+Intro line before any heading.
+
+# Opening
+keywords: introduce yourself, about you; background
+Hi, I'm Jose. I verified this [check].
+
+# Netskope
+keywords: netskope, SASE
+I ran a book of SaaS accounts.
+
+=== QA ===
+# Q: Why do you want this job?
+keywords: why this role, motivation
+Because it fits.
+
+[pause 2]
+
+# Q: Biggest weakness?
+keywords: weakness
+I over-prepare.
+`
+
+func TestOutlineAndQA(t *testing.T) {
+	p := Parse(packed)
+	if len(p.Outline) != 4 || p.QAItems != 2 {
+		t.Fatalf("outline=%d qa=%d", len(p.Outline), p.QAItems)
+	}
+	if got := strings.Join(p.Outline[0].Keywords, "|"); got != "introduce yourself|about you|background" {
+		t.Fatalf("keywords = %q", got)
+	}
+	if p.Outline[1].QA || !p.Outline[2].QA || !p.Outline[3].QA {
+		t.Fatalf("qa flags: %+v", p.Outline)
+	}
+	// main flow: 5 + 6 + 7 = 18 words; [check] is not a word
+	if p.Paragraphs != 3 || p.Words != 18 {
+		t.Fatalf("main paras=%d words=%d", p.Paragraphs, p.Words)
+	}
+	if p.QAParas != 2 || p.QAWords != 5 {
+		t.Fatalf("qa paras=%d words=%d", p.QAParas, p.QAWords)
+	}
+	if p.Pauses != 0 {
+		t.Fatalf("Q&A pauses must not count toward the pitch: %v", p.Pauses)
+	}
+	if p.Checks != 1 {
+		t.Fatalf("checks = %d", p.Checks)
+	}
+	if p.Outline[2].FirstPara != 0 || p.Outline[3].FirstPara != 1 || p.Outline[1].FirstPara != 2 {
+		t.Fatalf("first paras: %+v", p.Outline)
+	}
+	var check Block
+	for _, b := range p.Blocks {
+		if b.Kind == "para" && b.Sec == 0 {
+			check = b
+		}
+		if b.Kind == "para" && b.Text == "Intro line before any heading." && b.Sec != -1 {
+			t.Fatalf("intro sec = %d", b.Sec)
+		}
+	}
+	if !strings.Contains(check.HTML, `<mark class="check">`) || strings.Contains(check.Text, "[check]") {
+		t.Fatalf("check block = %+v", check)
+	}
+	if p.Meta.Title != "Interview pitch" {
+		t.Fatal(p.Meta.Title)
+	}
+}
+
+func TestQAHeadingWithoutMarker(t *testing.T) {
+	p := Parse("# Pitch\nHello.\n\n# Q: Salary expectations?\nkeywords: salary\nLet's talk.\n\n# Close\nBye.")
+	if p.QAItems != 1 || p.Paragraphs != 2 || p.Outline[2].QA {
+		t.Fatalf("%+v", p.Outline)
+	}
+}

@@ -28,6 +28,19 @@ type Block struct {
 	Pause   float64 `json:"pause"`             // seconds after this paragraph
 	Index   int     `json:"index"`             // paragraph index (paras only), -1 otherwise
 	Section string  `json:"section,omitempty"` // current section title
+	Sec     int     `json:"sec"`               // index into Parsed.Outline, -1 before the first heading
+	QA      bool    `json:"qa,omitempty"`      // part of the Q&A (reached through cues or search only)
+}
+
+// Section is one heading of the script with its cue keywords (stage 2).
+type Section struct {
+	Index     int      `json:"index"`
+	Title     string   `json:"title"`
+	QA        bool     `json:"qa,omitempty"`
+	Keywords  []string `json:"keywords"`
+	FirstPara int      `json:"firstPara"` // -1 when the section has no paragraphs
+	Paras     int      `json:"paras"`
+	Words     int      `json:"words"`
 }
 
 // Parsed is a fully parsed script.
@@ -38,6 +51,12 @@ type Parsed struct {
 	Paragraphs int     `json:"paragraphs"`
 	Sections   int     `json:"sections"`
 	Pauses     float64 `json:"pauses"`
+	// Stage 2: the outline (sections with keywords) and the Q&A part, which is not in the main flow.
+	Outline []Section `json:"outline"`
+	QAItems int       `json:"qaItems"`
+	QAWords int       `json:"qaWords"`
+	QAParas int       `json:"qaParas"`
+	Checks  int       `json:"checks"` // [check] marks left by Claude for facts to verify
 }
 
 const (
@@ -54,7 +73,44 @@ var (
 	boldRe    = regexp.MustCompile(`\*\*(.+?)\*\*`)
 	asideRe   = regexp.MustCompile(`(^|[\s(])_(.+?)_([\s.,;:!?)]|$)`)
 	wordRe    = regexp.MustCompile(`\S+`)
+	qaMarkRe  = regexp.MustCompile(`(?i)^={3,}\s*(?:QA|Q&A|Q & A)\s*={3,}$`)
+	checkRe   = regexp.MustCompile(`(?i)\[check\]`)
 )
+
+// IsQATitle reports whether a heading is a Q&A item ("Q: ...").
+func IsQATitle(t string) bool {
+	t = strings.TrimSpace(t)
+	return len(t) > 2 && (strings.HasPrefix(t, "Q:") || strings.HasPrefix(t, "q:") || strings.HasPrefix(t, "P:") || strings.HasPrefix(t, "Q."))
+}
+
+// Words splits text into the same word tokens CountWords counts.
+func Words(s string) []string {
+	out := []string{}
+	for _, w := range wordRe.FindAllString(s, -1) {
+		for _, r := range w {
+			if unicode.IsLetter(r) || unicode.IsDigit(r) {
+				out = append(out, w)
+				break
+			}
+		}
+	}
+	return out
+}
+
+// SplitKeywords parses a "keywords:" value: comma or semicolon separated, trimmed, de-duplicated.
+func SplitKeywords(v string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, k := range strings.FieldsFunc(v, func(r rune) bool { return r == ',' || r == ';' }) {
+		k = strings.TrimSpace(k)
+		if k == "" || seen[strings.ToLower(k)] {
+			continue
+		}
+		seen[strings.ToLower(k)] = true
+		out = append(out, k)
+	}
+	return out
+}
 
 // SplitFrontMatter separates "---" front matter from the body.
 func SplitFrontMatter(src string) (map[string]string, string) {
@@ -177,6 +233,7 @@ func inline(s string) string {
 	s = html.EscapeString(s)
 	s = boldRe.ReplaceAllString(s, "<strong>$1</strong>")
 	s = asideRe.ReplaceAllString(s, "$1<em>$2</em>$3")
+	s = checkRe.ReplaceAllString(s, `<mark class="check">[check]</mark>`)
 	return s
 }
 
@@ -184,6 +241,7 @@ func inline(s string) string {
 func plain(s string) string {
 	s = boldRe.ReplaceAllString(s, "$1")
 	s = asideRe.ReplaceAllString(s, "$1$2$3")
+	s = strings.TrimSpace(strings.Join(strings.Fields(checkRe.ReplaceAllString(s, "")), " "))
 	return s
 }
 
@@ -194,23 +252,43 @@ func Parse(src string) Parsed {
 	body = commentRe.ReplaceAllString(body, "")
 
 	section := ""
+	sec := -1
+	inQA := false
 	var para []string
 	flush := func() {
 		if len(para) == 0 {
 			return
 		}
 		lines := make([]string, len(para))
-		plains := make([]string, len(para))
+		plains := make([]string, 0, len(para))
 		for i, l := range para {
 			lines[i] = inline(l)
-			plains[i] = plain(l)
+			if pl := plain(l); pl != "" {
+				plains = append(plains, pl)
+			}
 		}
 		text := strings.Join(plains, "\n")
+		qa := inQA || (sec >= 0 && p.Outline[sec].QA)
 		b := Block{Kind: "para", HTML: strings.Join(lines, "<br>"), Text: text, Words: CountWords(text),
-			Index: p.Paragraphs, Section: section}
+			Section: section, Sec: sec, QA: qa}
+		if qa {
+			b.Index = p.QAParas
+			p.QAParas++
+			p.QAWords += b.Words
+		} else {
+			b.Index = p.Paragraphs
+			p.Words += b.Words
+			p.Paragraphs++
+		}
+		if sec >= 0 {
+			o := &p.Outline[sec]
+			if o.FirstPara < 0 {
+				o.FirstPara = b.Index
+			}
+			o.Paras++
+			o.Words += b.Words
+		}
 		p.Blocks = append(p.Blocks, b)
-		p.Words += b.Words
-		p.Paragraphs++
 		para = nil
 	}
 	lastPara := func() *Block {
@@ -227,6 +305,9 @@ func Parse(src string) Parsed {
 		switch {
 		case line == "":
 			flush()
+		case qaMarkRe.MatchString(line):
+			flush()
+			inQA = true
 		case pauseRe.MatchString(line):
 			flush()
 			d := DefaultPause
@@ -235,28 +316,43 @@ func Parse(src string) Parsed {
 			}
 			if lp := lastPara(); lp != nil {
 				lp.Pause += d
-				p.Pauses += d
+				if !lp.QA {
+					p.Pauses += d
+				}
 			}
 		case headingRe.MatchString(line):
 			flush()
 			m := headingRe.FindStringSubmatch(line)
 			section = strings.TrimSpace(m[2])
-			p.Blocks = append(p.Blocks, Block{Kind: "section", HTML: inline(section), Text: section, Index: -1, Section: section})
+			qa := inQA || IsQATitle(section)
+			sec = len(p.Outline)
+			p.Outline = append(p.Outline, Section{Index: sec, Title: section, QA: qa, Keywords: []string{}, FirstPara: -1})
+			if qa {
+				p.QAItems++
+			}
+			p.Blocks = append(p.Blocks, Block{Kind: "section", HTML: inline(section), Text: section, Index: -1, Section: section, Sec: sec, QA: qa})
 			p.Sections++
 		case strings.HasPrefix(line, ">"):
 			flush()
 			cue := strings.TrimSpace(strings.TrimLeft(line, ">"))
 			if cue != "" {
-				p.Blocks = append(p.Blocks, Block{Kind: "cue", HTML: inline(cue), Text: cue, Index: -1, Section: section})
+				p.Blocks = append(p.Blocks, Block{Kind: "cue", HTML: inline(cue), Text: cue, Index: -1, Section: section, Sec: sec, QA: inQA || (sec >= 0 && p.Outline[sec].QA)})
 			}
 		case strings.HasPrefix(strings.ToLower(line), "keywords:"):
-			// stage 2 metadata; not shown in stage 1
+			// cue keywords for the current section (stage 2); not shown in the prompter
 			flush()
+			if sec >= 0 {
+				p.Outline[sec].Keywords = append(p.Outline[sec].Keywords, SplitKeywords(line[len("keywords:"):])...)
+			}
 		default:
 			para = append(para, line)
 		}
 	}
 	flush()
+	if p.Outline == nil {
+		p.Outline = []Section{}
+	}
+	p.Checks = len(checkRe.FindAllString(body, -1))
 	if p.Meta.Title == "" {
 		p.Meta.Title = guessTitle(p)
 	}
@@ -265,7 +361,7 @@ func Parse(src string) Parsed {
 
 func guessTitle(p Parsed) string {
 	for _, b := range p.Blocks {
-		if b.Kind == "section" {
+		if b.Kind == "section" && !b.QA {
 			return b.Text
 		}
 	}
